@@ -1,0 +1,2030 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Running Intelligence</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #0a0a0a;
+        --surface: #111111;
+        --card: #161616;
+        --border: #222222;
+        --accent: #c8f135;
+        --red: #ff4d4d;
+        --blue: #60a5fa;
+        --purple: #a78bfa;
+        --yellow: #facc15;
+        --text: #f0f0f0;
+        --muted: #555555;
+        --mono: "DM Mono", monospace;
+        --sans: "DM Sans", sans-serif;
+        --display: "Bebas Neue", sans-serif;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.3;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      }
+
+      /* ── SCREENS ── */
+      .screen {
+        display: none;
+      }
+      .screen.active {
+        display: block;
+      }
+
+      /* ── PROFILE SCREEN ── */
+      #screen-profile {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: var(--bg);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 52px;
+      }
+      #screen-profile.active {
+        display: flex;
+      }
+      .profile-logo {
+        font-family: var(--display);
+        font-size: 38px;
+        letter-spacing: 3px;
+        text-align: center;
+      }
+      .profile-logo span {
+        color: var(--accent);
+      }
+      .profile-sub {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 2px;
+        margin-top: 6px;
+        text-align: center;
+      }
+      .profile-cards {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .profile-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px 28px;
+        cursor: pointer;
+        text-align: center;
+        min-width: 140px;
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
+      }
+      .profile-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-5px);
+      }
+      .p-emoji {
+        font-size: 52px;
+        display: block;
+        margin-bottom: 14px;
+      }
+      .p-name {
+        font-family: var(--display);
+        font-size: 26px;
+        letter-spacing: 1px;
+      }
+      .p-tag {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--muted);
+        margin-top: 5px;
+        letter-spacing: 1px;
+      }
+
+      /* ── HEADER ── */
+      header {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 40px;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        background: rgba(10, 10, 10, 0.93);
+        backdrop-filter: blur(14px);
+        z-index: 100;
+      }
+      header.visible {
+        display: flex;
+      }
+      .logo {
+        font-family: var(--display);
+        font-size: 22px;
+        letter-spacing: 2px;
+      }
+      .logo span {
+        color: var(--accent);
+      }
+
+      /* NAV TABS */
+      .nav-tabs {
+        display: flex;
+        gap: 4px;
+      }
+      .nav-tab {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 1px;
+        padding: 7px 16px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        color: var(--muted);
+        background: transparent;
+        transition: all 0.15s;
+      }
+      .nav-tab:hover {
+        color: var(--text);
+      }
+      .nav-tab.active {
+        background: var(--surface);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .nav-tab.cooper-tab.active {
+        background: rgba(200, 241, 53, 0.08);
+        border-color: rgba(200, 241, 53, 0.3);
+        color: var(--accent);
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .active-user {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        cursor: pointer;
+        transition: color 0.2s;
+      }
+      .active-user:hover {
+        color: var(--text);
+      }
+      .active-user .uname {
+        font-family: var(--display);
+        font-size: 17px;
+        color: var(--text);
+      }
+
+      /* ── MAIN ── */
+      #app-body {
+        display: none;
+      }
+      #app-body.visible {
+        display: block;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 36px 40px 80px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── STATS GRID ── */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 14px;
+        margin-bottom: 36px;
+      }
+      .stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+        transition: border-color 0.2s;
+        animation: fadeUp 0.4s ease both;
+      }
+      .stat-card:nth-child(1) {
+        animation-delay: 0.05s;
+      }
+      .stat-card:nth-child(2) {
+        animation-delay: 0.1s;
+      }
+      .stat-card:nth-child(3) {
+        animation-delay: 0.15s;
+      }
+      .stat-card:nth-child(4) {
+        animation-delay: 0.2s;
+      }
+      .stat-card:nth-child(5) {
+        animation-delay: 0.25s;
+      }
+      .stat-card::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--accent);
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .stat-card:hover::after {
+        opacity: 1;
+      }
+      .stat-card.hl {
+        border-color: rgba(200, 241, 53, 0.25);
+        background: rgba(200, 241, 53, 0.03);
+      }
+      .stat-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .stat-value {
+        font-family: var(--display);
+        font-size: 36px;
+        line-height: 1;
+      }
+      .stat-value.ac {
+        color: var(--accent);
+      }
+      .stat-unit {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      /* ── TWO COL ── */
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 28px;
+      }
+
+      /* ── PANEL ── */
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--border);
+      }
+      .panel-title {
+        font-family: var(--display);
+        font-size: 17px;
+        letter-spacing: 1px;
+      }
+      .panel-body {
+        padding: 22px;
+      }
+
+      /* ── TYPE TABS ── */
+      .type-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 1px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        cursor: pointer;
+        background: transparent;
+        color: var(--muted);
+        transition: all 0.15s;
+      }
+      .tab:hover {
+        border-color: #444;
+        color: var(--text);
+      }
+      .tab.active {
+        background: var(--accent);
+        color: #0a0a0a;
+        border-color: var(--accent);
+      }
+
+      /* ── FORM ── */
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .form-group.full {
+        grid-column: span 2;
+      }
+      label {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      input,
+      textarea,
+      select {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 14px;
+        padding: 9px 12px;
+        border-radius: 8px;
+        outline: none;
+        transition: border-color 0.2s;
+        width: 100%;
+      }
+      input:focus,
+      textarea:focus {
+        border-color: var(--accent);
+      }
+      textarea {
+        resize: vertical;
+        min-height: 60px;
+      }
+      .time-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .time-row input {
+        text-align: center;
+      }
+      .time-sep {
+        font-family: var(--display);
+        font-size: 20px;
+        color: var(--muted);
+      }
+      .effort-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      input[type="range"] {
+        flex: 1;
+        padding: 0;
+        accent-color: var(--accent);
+        height: 4px;
+        border: none;
+      }
+      .effort-val {
+        font-family: var(--display);
+        font-size: 26px;
+        color: var(--accent);
+        min-width: 24px;
+        text-align: center;
+      }
+      .pace-preview {
+        font-family: var(--display);
+        font-size: 28px;
+        color: var(--accent);
+        text-align: center;
+        padding: 10px;
+        background: rgba(200, 241, 53, 0.05);
+        border: 1px solid rgba(200, 241, 53, 0.15);
+        border-radius: 8px;
+        letter-spacing: 2px;
+      }
+      .pace-preview small {
+        display: block;
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        margin-top: 2px;
+      }
+      .form-section {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        padding: 8px 0 4px;
+        border-top: 1px solid var(--border);
+        grid-column: span 2;
+        margin-top: 4px;
+      }
+      .btn {
+        font-family: var(--display);
+        font-size: 15px;
+        letter-spacing: 2px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #0a0a0a;
+        width: 100%;
+        margin-top: 8px;
+      }
+      .btn-primary:hover {
+        background: #d4f545;
+        transform: translateY(-1px);
+      }
+      .btn-danger {
+        background: rgba(255, 77, 77, 0.1);
+        color: var(--red);
+        border: 1px solid rgba(255, 77, 77, 0.2);
+        padding: 6px 14px;
+        font-size: 12px;
+      }
+      .btn-danger:hover {
+        background: rgba(255, 77, 77, 0.2);
+      }
+
+      /* ── CHART ── */
+      .chart-wrap {
+        position: relative;
+        height: 195px;
+      }
+
+      /* ── HISTORY TABLE ── */
+      .run-list {
+        display: flex;
+        flex-direction: column;
+      }
+      .run-row {
+        display: grid;
+        grid-template-columns: 90px 80px 1fr 1fr 1fr 50px 28px;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 22px;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.15s;
+      }
+      .run-row:last-child {
+        border-bottom: none;
+      }
+      .run-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .run-row.hdr {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        padding: 10px 22px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .r-date {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .r-dist {
+        font-family: var(--display);
+        font-size: 18px;
+      }
+      .r-pace {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent);
+      }
+      .r-detail {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .type-badge {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1px;
+        padding: 3px 8px;
+        border-radius: 10px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .type-run {
+        background: rgba(200, 241, 53, 0.1);
+        color: var(--accent);
+        border: 1px solid rgba(200, 241, 53, 0.2);
+      }
+      .type-intervals {
+        background: rgba(255, 77, 77, 0.1);
+        color: var(--red);
+        border: 1px solid rgba(255, 77, 77, 0.2);
+      }
+      .type-circuit {
+        background: rgba(250, 204, 21, 0.1);
+        color: var(--yellow);
+        border: 1px solid rgba(250, 204, 21, 0.2);
+      }
+      .type-technique {
+        background: rgba(167, 139, 250, 0.1);
+        color: var(--purple);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+      }
+      .rpe-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+      .del-btn {
+        background: none;
+        border: none;
+        color: var(--border);
+        cursor: pointer;
+        font-size: 14px;
+        transition: color 0.15s;
+        padding: 3px;
+      }
+      .del-btn:hover {
+        color: var(--red);
+      }
+      .empty {
+        text-align: center;
+        padding: 40px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 1px;
+      }
+      .empty .big {
+        font-family: var(--display);
+        font-size: 52px;
+        color: var(--border);
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      /* ── COOPER SCREEN ── */
+      #screen-cooper {
+        display: none;
+      }
+      #screen-cooper.active {
+        display: block;
+      }
+
+      .cooper-hero {
+        background: var(--card);
+        border: 1px solid rgba(200, 241, 53, 0.2);
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 28px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+
+      .cooper-info h2 {
+        font-family: var(--display);
+        font-size: 32px;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+      }
+      .cooper-info p {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      .cooper-info .rule {
+        color: var(--accent);
+        margin-top: 10px;
+        display: block;
+      }
+
+      .cooper-form-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      /* Result card */
+      .cooper-result {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 28px;
+        display: none;
+      }
+      .cooper-result.show {
+        display: block;
+        animation: fadeUp 0.4s ease both;
+      }
+      .result-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-top: 16px;
+      }
+      .result-item {
+        text-align: center;
+      }
+      .result-val {
+        font-family: var(--display);
+        font-size: 38px;
+        line-height: 1;
+      }
+      .result-val.green {
+        color: #4ade80;
+      }
+      .result-val.yellow {
+        color: var(--yellow);
+      }
+      .result-val.red {
+        color: var(--red);
+      }
+      .result-val.blue {
+        color: var(--blue);
+      }
+      .result-val.accent {
+        color: var(--accent);
+      }
+      .result-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-top: 6px;
+      }
+
+      /* Fitness bar */
+      .fitness-bar {
+        display: flex;
+        gap: 3px;
+        margin: 20px 0 8px;
+      }
+      .fb-seg {
+        height: 6px;
+        border-radius: 3px;
+        flex: 1;
+        background: var(--border);
+        transition: background 0.4s;
+      }
+      .fb-seg.lit {
+        background: var(--accent);
+      }
+      .fb-labels {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1px;
+      }
+
+      /* Cooper history */
+      .cooper-history {
+        margin-top: 28px;
+      }
+      .cooper-row {
+        display: grid;
+        grid-template-columns: 90px 100px 80px 80px 1fr 28px;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 22px;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.15s;
+      }
+      .cooper-row:last-child {
+        border-bottom: none;
+      }
+      .cooper-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .cooper-row.hdr {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        padding: 10px 22px;
+        background: var(--surface);
+      }
+      .level-badge {
+        font-family: var(--mono);
+        font-size: 9px;
+        padding: 3px 8px;
+        border-radius: 10px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .lv-very-poor {
+        background: rgba(255, 77, 77, 0.1);
+        color: var(--red);
+        border: 1px solid rgba(255, 77, 77, 0.2);
+      }
+      .lv-poor {
+        background: rgba(250, 204, 21, 0.1);
+        color: var(--yellow);
+        border: 1px solid rgba(250, 204, 21, 0.2);
+      }
+      .lv-average {
+        background: rgba(96, 165, 250, 0.1);
+        color: var(--blue);
+        border: 1px solid rgba(96, 165, 250, 0.2);
+      }
+      .lv-good {
+        background: rgba(74, 222, 128, 0.1);
+        color: #4ade80;
+        border: 1px solid rgba(74, 222, 128, 0.2);
+      }
+      .lv-excellent {
+        background: rgba(200, 241, 53, 0.1);
+        color: var(--accent);
+        border: 1px solid rgba(200, 241, 53, 0.2);
+      }
+      .lv-superior {
+        background: rgba(167, 139, 250, 0.1);
+        color: var(--purple);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+      }
+
+      /* ── TOAST ── */
+      #toast {
+        position: fixed;
+        bottom: 28px;
+        right: 28px;
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 10px 18px;
+        border-radius: 8px;
+        z-index: 999;
+        transform: translateY(60px);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      #toast.show {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── TABLET ── */
+      @media (max-width: 960px) {
+        header {
+          padding: 14px 20px;
+        }
+        .nav-tabs {
+          gap: 2px;
+        }
+        .nav-tab {
+          padding: 6px 10px;
+          font-size: 9px;
+        }
+        main {
+          padding: 24px 20px 80px;
+        }
+        .stats-grid {
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+        .cooper-hero {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        .result-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      /* ── MOBILE ── */
+      @media (max-width: 600px) {
+        header {
+          padding: 12px 14px;
+        }
+        .logo {
+          font-size: 17px;
+        }
+        .nav-tab {
+          padding: 5px 8px;
+          font-size: 8px;
+          letter-spacing: 0.5px;
+        }
+        .active-user .uname {
+          font-size: 14px;
+        }
+        main {
+          padding: 14px 12px 80px;
+        }
+
+        .stats-grid {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+          margin-bottom: 20px;
+        }
+        .stat-card {
+          padding: 14px;
+        }
+        .stat-value {
+          font-size: 28px;
+        }
+        .stat-label,
+        .stat-unit {
+          font-size: 8px;
+        }
+
+        .two-col {
+          gap: 14px;
+          margin-bottom: 20px;
+        }
+        .panel-body {
+          padding: 14px;
+        }
+        .panel-header {
+          padding: 12px 14px;
+        }
+        .panel-title {
+          font-size: 14px;
+        }
+
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+        .form-group.full {
+          grid-column: span 1;
+        }
+        .form-section {
+          grid-column: span 1;
+        }
+        input,
+        textarea {
+          font-size: 16px;
+          padding: 11px 12px;
+        }
+        .time-row input {
+          font-size: 16px;
+        }
+
+        .chart-wrap {
+          height: 145px;
+        }
+
+        .run-row.hdr {
+          display: none;
+        }
+        .run-row {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 12px 14px;
+          position: relative;
+        }
+        .r-dist {
+          font-size: 20px;
+        }
+        .r-pace,
+        .r-detail {
+          font-size: 11px;
+        }
+        .type-badge {
+          position: absolute;
+          top: 12px;
+          right: 40px;
+        }
+        .rpe-badge {
+          display: none;
+        }
+        .del-btn {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+        }
+
+        .cooper-hero {
+          padding: 20px;
+        }
+        .result-grid {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+        .result-val {
+          font-size: 30px;
+        }
+
+        .cooper-row.hdr {
+          display: none;
+        }
+        .cooper-row {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 12px 14px;
+          position: relative;
+        }
+        .cooper-row .del-btn {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+        }
+
+        #toast {
+          bottom: 14px;
+          right: 10px;
+          left: 10px;
+          text-align: center;
+        }
+
+        .profile-cards {
+          gap: 12px;
+        }
+        .profile-card {
+          padding: 22px 16px;
+          min-width: 100px;
+        }
+        .p-emoji {
+          font-size: 40px;
+        }
+        .p-name {
+          font-size: 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ════════════════════════════════════════
+     PROFILE SCREEN
+═════════════════════════════════════════ -->
+    <div id="screen-profile" class="active">
+      <div>
+        <div class="profile-logo">RUNNING<span>.</span>INTELLIGENCE</div>
+        <div class="profile-sub">WHO'S TRAINING TODAY?</div>
+      </div>
+      <div class="profile-cards" id="profile-cards"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+     HEADER
+═════════════════════════════════════════ -->
+    <header id="main-header">
+      <div class="logo">RUNNING<span>.</span>INTELLIGENCE</div>
+      <div class="nav-tabs">
+        <button
+          class="nav-tab active"
+          data-screen="dashboard"
+          onclick="showScreen('dashboard')"
+        >
+          Dashboard
+        </button>
+        <button
+          class="nav-tab cooper-tab"
+          data-screen="cooper"
+          onclick="showScreen('cooper')"
+        >
+          Cooper Test
+        </button>
+      </div>
+      <div class="header-right">
+        <div class="active-user" onclick="switchUser()">
+          <span id="hdr-emoji"></span>
+          <span class="uname" id="hdr-name">—</span>
+          <span style="font-size: 9px; color: var(--muted)">switch ↗</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════════════════════════════════════════
+     APP BODY
+═════════════════════════════════════════ -->
+    <div id="app-body">
+      <!-- ── DASHBOARD SCREEN ── -->
+      <div id="screen-dashboard" class="screen active">
+        <main>
+          <!-- STATS -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total KM</div>
+              <div class="stat-value" id="s-total">0</div>
+              <div class="stat-unit">kilometers</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">This Week</div>
+              <div class="stat-value" id="s-week">0</div>
+              <div class="stat-unit">km / week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Avg Pace</div>
+              <div class="stat-value" id="s-avg">—</div>
+              <div class="stat-unit">min / km</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Best Pace</div>
+              <div class="stat-value" id="s-best">—</div>
+              <div class="stat-unit">min / km</div>
+            </div>
+            <div class="stat-card hl">
+              <div class="stat-label">🎯 10k Projection</div>
+              <div class="stat-value ac" id="s-10k">—</div>
+              <div class="stat-unit">estimated time</div>
+            </div>
+          </div>
+
+          <!-- LOG + CHART -->
+          <div class="two-col">
+            <!-- LOG FORM -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">LOG SESSION</div>
+              </div>
+              <div class="panel-body">
+                <div class="type-tabs">
+                  <button
+                    class="tab active"
+                    data-type="run"
+                    onclick="setType('run')"
+                  >
+                    🏃 Run
+                  </button>
+                  <button
+                    class="tab"
+                    data-type="intervals"
+                    onclick="setType('intervals')"
+                  >
+                    ⚡ Intervals
+                  </button>
+                  <button
+                    class="tab"
+                    data-type="circuit"
+                    onclick="setType('circuit')"
+                  >
+                    🔄 Circuit
+                  </button>
+                  <button
+                    class="tab"
+                    data-type="technique"
+                    onclick="setType('technique')"
+                  >
+                    🎯 Technique
+                  </button>
+                </div>
+
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="f-date" />
+                  </div>
+                  <div class="form-group">
+                    <label>Effort <span id="eff-lbl">5</span>/10</label>
+                    <div class="effort-row">
+                      <input
+                        type="range"
+                        id="f-effort"
+                        min="1"
+                        max="10"
+                        value="5"
+                      />
+                      <div class="effort-val" id="eff-val">5</div>
+                    </div>
+                  </div>
+
+                  <!-- RUN -->
+                  <div id="f-run" style="display: contents">
+                    <div class="form-section">Continuous run</div>
+                    <div class="form-group">
+                      <label>Distance (km)</label>
+                      <input
+                        type="number"
+                        id="f-dist"
+                        placeholder="8.0"
+                        step="0.1"
+                        min="0"
+                      />
+                    </div>
+                    <div class="form-group full">
+                      <label>Time (hh : mm : ss)</label>
+                      <div class="time-row">
+                        <input
+                          type="number"
+                          id="f-hh"
+                          placeholder="00"
+                          min="0"
+                          max="23"
+                        />
+                        <span class="time-sep">:</span>
+                        <input
+                          type="number"
+                          id="f-mm"
+                          placeholder="00"
+                          min="0"
+                          max="59"
+                        />
+                        <span class="time-sep">:</span>
+                        <input
+                          type="number"
+                          id="f-ss"
+                          placeholder="00"
+                          min="0"
+                          max="59"
+                        />
+                      </div>
+                    </div>
+                    <div class="form-group full">
+                      <div class="pace-preview" id="pace-preview">
+                        —<small>MIN / KM</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- INTERVALS -->
+                  <div
+                    id="f-intervals"
+                    style="display: none; grid-column: span 2"
+                  >
+                    <div class="form-section" style="grid-column: span 1">
+                      Intervals / Series
+                    </div>
+                    <div class="form-grid" style="margin-top: 8px">
+                      <div class="form-group">
+                        <label>Distance per rep (m)</label>
+                        <input
+                          type="number"
+                          id="f-idist"
+                          placeholder="300"
+                          min="0"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label>Number of reps</label>
+                        <input
+                          type="number"
+                          id="f-ireps"
+                          placeholder="5"
+                          min="1"
+                        />
+                      </div>
+                      <div class="form-group full">
+                        <label>Target pace (min:ss)</label>
+                        <input
+                          type="text"
+                          id="f-ipace"
+                          placeholder="e.g. 4:30"
+                        />
+                      </div>
+                      <div class="form-group full">
+                        <label>Total distance (km) — optional</label>
+                        <input
+                          type="number"
+                          id="f-itotal"
+                          placeholder="3.0"
+                          step="0.1"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- CIRCUIT -->
+                  <div
+                    id="f-circuit"
+                    style="display: none; grid-column: span 2"
+                  >
+                    <div class="form-section" style="grid-column: span 1">
+                      Dynamic circuit
+                    </div>
+                    <div class="form-grid" style="margin-top: 8px">
+                      <div class="form-group">
+                        <label>Rounds</label>
+                        <input
+                          type="number"
+                          id="f-crounds"
+                          placeholder="4"
+                          min="1"
+                        />
+                      </div>
+                      <div class="form-group full">
+                        <label>Circuit details</label>
+                        <textarea
+                          id="f-cdetails"
+                          placeholder="slalom, 50m sprint, 10 squats, 10 lunges, 200m jog..."
+                        ></textarea>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- TECHNIQUE -->
+                  <div
+                    id="f-technique"
+                    style="display: none; grid-column: span 2"
+                  >
+                    <div class="form-section" style="grid-column: span 1">
+                      Running drills
+                    </div>
+                    <div class="form-grid" style="margin-top: 8px">
+                      <div class="form-group full">
+                        <label>Drills performed</label>
+                        <textarea
+                          id="f-drills"
+                          placeholder="high knees 2×30m, butt kicks 2×30m, bounding 2×30m..."
+                        ></textarea>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group full">
+                    <label>Notes</label>
+                    <textarea
+                      id="f-notes"
+                      placeholder="How did you feel? Anything to improve?"
+                    ></textarea>
+                  </div>
+                </div>
+                <button class="btn btn-primary" onclick="submitRun()">
+                  + SAVE SESSION
+                </button>
+              </div>
+            </div>
+
+            <!-- CHARTS -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">PROGRESS</div>
+                <div
+                  style="
+                    font-family: var(--mono);
+                    font-size: 10px;
+                    color: var(--muted);
+                  "
+                >
+                  last sessions
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="chart-wrap"><canvas id="chart-dist"></canvas></div>
+                <div style="margin-top: 20px" class="chart-wrap">
+                  <canvas id="chart-pace"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HISTORY -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">HISTORY</div>
+              <div
+                style="
+                  font-family: var(--mono);
+                  font-size: 10px;
+                  color: var(--muted);
+                "
+                id="run-count"
+              >
+                0 sessions
+              </div>
+            </div>
+            <div class="run-row hdr">
+              <div>Date</div>
+              <div>Type</div>
+              <div>Distance</div>
+              <div>Pace</div>
+              <div>Detail</div>
+              <div>RPE</div>
+              <div></div>
+            </div>
+            <div class="run-list" id="run-list">
+              <div class="empty">
+                <span class="big">0</span>No sessions logged yet
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- ── COOPER TEST SCREEN ── -->
+      <div id="screen-cooper" class="screen">
+        <main>
+          <div class="cooper-hero">
+            <!-- INFO -->
+            <div class="cooper-info">
+              <h2>COOPER TEST</h2>
+              <p>
+                The Cooper Test measures your aerobic fitness by recording how
+                far you can run in
+                <strong style="color: var(--text)">12 minutes</strong>.
+              </p>
+              <p style="margin-top: 10px">
+                From your distance, we calculate your
+                <strong style="color: var(--text)">VO₂ max</strong>,
+                <strong style="color: var(--text)">fitness level</strong>, and
+                <strong style="color: var(--text)">projected 10k time</strong>.
+              </p>
+              <span class="rule"
+                >Run as far as you can in exactly 12 minutes on a flat surface
+                or track.</span
+              >
+            </div>
+
+            <!-- FORM -->
+            <div class="cooper-form-inner">
+              <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="c-date" />
+              </div>
+              <div class="form-group">
+                <label>Distance covered (meters)</label>
+                <input
+                  type="number"
+                  id="c-dist"
+                  placeholder="e.g. 2400"
+                  min="500"
+                  max="6000"
+                  step="10"
+                />
+              </div>
+              <div class="form-group">
+                <label>Notes</label>
+                <textarea
+                  id="c-notes"
+                  placeholder="Weather, surface, how you felt..."
+                  style="min-height: 50px"
+                ></textarea>
+              </div>
+              <button class="btn btn-primary" onclick="submitCooper()">
+                CALCULATE RESULT
+              </button>
+            </div>
+          </div>
+
+          <!-- RESULT CARD (shown after submit) -->
+          <div class="cooper-result" id="cooper-result">
+            <div
+              style="
+                font-family: var(--display);
+                font-size: 20px;
+                letter-spacing: 1px;
+                margin-bottom: 4px;
+              "
+            >
+              LATEST RESULT
+            </div>
+            <div
+              style="
+                font-family: var(--mono);
+                font-size: 10px;
+                color: var(--muted);
+              "
+              id="cr-date"
+            ></div>
+
+            <div class="fitness-bar" id="fitness-bar">
+              <div class="fb-seg" id="fb1"></div>
+              <div class="fb-seg" id="fb2"></div>
+              <div class="fb-seg" id="fb3"></div>
+              <div class="fb-seg" id="fb4"></div>
+              <div class="fb-seg" id="fb5"></div>
+              <div class="fb-seg" id="fb6"></div>
+            </div>
+            <div class="fb-labels">
+              <span>Very Poor</span><span>Poor</span><span>Average</span
+              ><span>Good</span><span>Excellent</span><span>Superior</span>
+            </div>
+
+            <div class="result-grid">
+              <div class="result-item">
+                <div class="result-val accent" id="cr-dist">—</div>
+                <div class="result-label">Distance (m)</div>
+              </div>
+              <div class="result-item">
+                <div class="result-val blue" id="cr-vo2">—</div>
+                <div class="result-label">VO₂ max (ml/kg/min)</div>
+              </div>
+              <div class="result-item">
+                <div class="result-val" id="cr-level">—</div>
+                <div class="result-label">Fitness Level</div>
+              </div>
+              <div class="result-item">
+                <div class="result-val green" id="cr-10k">—</div>
+                <div class="result-label">Projected 10k</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HISTORY -->
+          <div class="panel cooper-history">
+            <div class="panel-header">
+              <div class="panel-title">TEST HISTORY</div>
+              <div
+                style="
+                  font-family: var(--mono);
+                  font-size: 10px;
+                  color: var(--muted);
+                "
+                id="cooper-count"
+              >
+                0 tests
+              </div>
+            </div>
+            <div class="cooper-row hdr">
+              <div>Date</div>
+              <div>Distance</div>
+              <div>VO₂ max</div>
+              <div>10k proj.</div>
+              <div>Level</div>
+              <div></div>
+            </div>
+            <div id="cooper-list">
+              <div class="empty">
+                <span class="big">0</span>No Cooper tests recorded yet
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+    <!-- end app-body -->
+
+    <div id="toast"></div>
+
+    <script>
+      // ════════════════════════════════════════
+      // STATE
+      // ════════════════════════════════════════
+      let user = null;
+      let sessionType = "run";
+      let chartDist = null,
+        chartPace = null;
+
+      // ════════════════════════════════════════
+      // BOOT
+      // ════════════════════════════════════════
+      document.addEventListener("DOMContentLoaded", async () => {
+        setToday("f-date");
+        setToday("c-date");
+        initCharts();
+        bindForm();
+        await loadProfiles();
+      });
+
+      async function loadProfiles() {
+        const users = await fetch("/api/users").then((r) => r.json());
+        document.getElementById("profile-cards").innerHTML = users
+          .map(
+            (u) => `
+    <div class="profile-card" onclick="selectUser(${u.id},'${u.name}','${u.emoji}')">
+      <span class="p-emoji">${u.emoji}</span>
+      <div class="p-name">${u.name}</div>
+      <div class="p-tag">→ 10k goal</div>
+    </div>`,
+          )
+          .join("");
+      }
+
+      function selectUser(id, name, emoji) {
+        user = { id, name, emoji };
+        document.getElementById("screen-profile").classList.remove("active");
+        document.getElementById("main-header").classList.add("visible");
+        document.getElementById("app-body").classList.add("visible");
+        document.getElementById("hdr-name").textContent = name;
+        document.getElementById("hdr-emoji").textContent = emoji;
+        showScreen("dashboard");
+        loadDashboard();
+      }
+
+      function switchUser() {
+        user = null;
+        document.getElementById("screen-profile").classList.add("active");
+        document.getElementById("main-header").classList.remove("visible");
+        document.getElementById("app-body").classList.remove("visible");
+      }
+
+      // ════════════════════════════════════════
+      // SCREEN NAV
+      // ════════════════════════════════════════
+      function showScreen(name) {
+        document
+          .querySelectorAll(".screen")
+          .forEach((s) => s.classList.remove("active"));
+        document.getElementById("screen-" + name).classList.add("active");
+        document
+          .querySelectorAll(".nav-tab")
+          .forEach((t) =>
+            t.classList.toggle("active", t.dataset.screen === name),
+          );
+        if (name === "cooper") loadCooper();
+      }
+
+      // ════════════════════════════════════════
+      // DASHBOARD
+      // ════════════════════════════════════════
+      async function loadDashboard() {
+        const [runs, stats] = await Promise.all([
+          fetch(`/api/runs/${user.id}`).then((r) => r.json()),
+          fetch(`/api/stats/${user.id}`).then((r) => r.json()),
+        ]);
+        renderStats(stats);
+        renderHistory(runs);
+        renderCharts(runs);
+      }
+
+      function renderStats(s) {
+        document.getElementById("s-total").textContent = s.total_km;
+        document.getElementById("s-week").textContent = s.weekly_km;
+        document.getElementById("s-avg").textContent = s.avg_pace;
+        document.getElementById("s-best").textContent = s.best_pace;
+        document.getElementById("s-10k").textContent = s.proj_10k || "—";
+      }
+
+      // ════════════════════════════════════════
+      // SESSION FORM
+      // ════════════════════════════════════════
+      function setType(type) {
+        sessionType = type;
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) =>
+            t.classList.toggle("active", t.dataset.type === type),
+          );
+        const map = {
+          run: "contents",
+          intervals: "block",
+          circuit: "block",
+          technique: "block",
+        };
+        ["run", "intervals", "circuit", "technique"].forEach((t) => {
+          document.getElementById("f-" + t).style.display =
+            t === type ? map[t] : "none";
+        });
+      }
+
+      function bindForm() {
+        ["f-dist", "f-hh", "f-mm", "f-ss"].forEach((id) => {
+          document.getElementById(id)?.addEventListener("input", calcPace);
+        });
+        document.getElementById("f-effort").addEventListener("input", (e) => {
+          document.getElementById("eff-val").textContent = e.target.value;
+          document.getElementById("eff-lbl").textContent = e.target.value;
+        });
+      }
+
+      function calcPace() {
+        const dist = parseFloat(document.getElementById("f-dist").value) || 0;
+        const sec =
+          (parseInt(document.getElementById("f-hh").value) || 0) * 3600 +
+          (parseInt(document.getElementById("f-mm").value) || 0) * 60 +
+          (parseInt(document.getElementById("f-ss").value) || 0);
+        const el = document.getElementById("pace-preview");
+        if (dist > 0 && sec > 0) {
+          const ps = sec / dist;
+          el.innerHTML = `${Math.floor(ps / 60)}:${String(Math.floor(ps % 60)).padStart(2, "0")}<small>MIN / KM</small>`;
+        } else {
+          el.innerHTML = `—<small>MIN / KM</small>`;
+        }
+      }
+
+      async function submitRun() {
+        if (!user) return;
+        const date = document.getElementById("f-date").value;
+        if (!date) {
+          toast("⚠ Select a date", true);
+          return;
+        }
+
+        const payload = {
+          user_id: user.id,
+          date,
+          type: sessionType,
+          effort: parseInt(document.getElementById("f-effort").value),
+          notes: document.getElementById("f-notes").value,
+        };
+
+        if (sessionType === "run") {
+          const dist = parseFloat(document.getElementById("f-dist").value);
+          const sec =
+            (parseInt(document.getElementById("f-hh").value) || 0) * 3600 +
+            (parseInt(document.getElementById("f-mm").value) || 0) * 60 +
+            (parseInt(document.getElementById("f-ss").value) || 0);
+          if (!dist || sec === 0) {
+            toast("⚠ Fill in distance and time", true);
+            return;
+          }
+          payload.distance = dist;
+          payload.time_seconds = sec;
+        }
+        if (sessionType === "intervals") {
+          payload.interval_dist =
+            parseFloat(document.getElementById("f-idist").value) || null;
+          payload.interval_reps =
+            parseInt(document.getElementById("f-ireps").value) || null;
+          payload.interval_pace =
+            document.getElementById("f-ipace").value || null;
+          payload.distance =
+            parseFloat(document.getElementById("f-itotal").value) || 0;
+          if (!payload.interval_dist || !payload.interval_reps) {
+            toast("⚠ Fill in distance and reps", true);
+            return;
+          }
+        }
+        if (sessionType === "circuit") {
+          payload.circuit_rounds =
+            parseInt(document.getElementById("f-crounds").value) || null;
+          payload.circuit_details =
+            document.getElementById("f-cdetails").value || null;
+        }
+        if (sessionType === "technique") {
+          payload.technique_drills =
+            document.getElementById("f-drills").value || null;
+        }
+
+        const res = await fetch("/api/runs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          clearRunForm();
+          loadDashboard();
+          toast("✓ Session saved");
+        } else {
+          toast("✗ Error saving", true);
+        }
+      }
+
+      function clearRunForm() {
+        [
+          "f-dist",
+          "f-hh",
+          "f-mm",
+          "f-ss",
+          "f-notes",
+          "f-idist",
+          "f-ireps",
+          "f-ipace",
+          "f-itotal",
+          "f-crounds",
+          "f-cdetails",
+          "f-drills",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.value = "";
+        });
+        document.getElementById("f-effort").value = 5;
+        document.getElementById("eff-val").textContent = "5";
+        document.getElementById("eff-lbl").textContent = "5";
+        document.getElementById("pace-preview").innerHTML =
+          "—<small>MIN / KM</small>";
+        setToday("f-date");
+      }
+
+      // ════════════════════════════════════════
+      // HISTORY
+      // ════════════════════════════════════════
+      function renderHistory(runs) {
+        const list = document.getElementById("run-list");
+        document.getElementById("run-count").textContent =
+          `${runs.length} sessions`;
+        if (!runs.length) {
+          list.innerHTML = `<div class="empty"><span class="big">0</span>No sessions logged yet</div>`;
+          return;
+        }
+
+        list.innerHTML = runs
+          .map((r) => {
+            const m = Math.floor(r.time_seconds / 60),
+              s = r.time_seconds % 60;
+            const timeStr =
+              r.time_seconds > 0 ? `${m}:${String(s).padStart(2, "0")}` : "—";
+            const ec =
+              r.effort <= 3 ? "#4ade80" : r.effort <= 6 ? "#facc15" : "#f87171";
+            let detail = "—";
+            if (r.type === "run") detail = timeStr;
+            if (r.type === "intervals")
+              detail = r.interval_reps
+                ? `${r.interval_reps}×${r.interval_dist}m`
+                : "—";
+            if (r.type === "circuit")
+              detail = r.circuit_rounds ? `${r.circuit_rounds} rounds` : "—";
+            if (r.type === "technique") detail = "drills";
+            const dist =
+              r.distance > 0
+                ? `${r.distance}<span style="font-size:11px;color:var(--muted);font-family:var(--mono)"> km</span>`
+                : "—";
+            return `<div class="run-row">
+      <div class="r-date">${r.date}</div>
+      <div><span class="type-badge type-${r.type}">${r.type}</span></div>
+      <div class="r-dist">${dist}</div>
+      <div class="r-pace">${r.pace && r.pace !== "—" ? r.pace : "—"}</div>
+      <div class="r-detail">${detail}</div>
+      <div class="rpe-badge" style="background:${ec}22;color:${ec};border:1px solid ${ec}44">${r.effort}</div>
+      <button class="del-btn" onclick="deleteRun(${r.id})">✕</button>
+    </div>`;
+          })
+          .join("");
+      }
+
+      async function deleteRun(id) {
+        await fetch(`/api/runs/${id}`, { method: "DELETE" });
+        loadDashboard();
+      }
+
+      // ════════════════════════════════════════
+      // CHARTS
+      // ════════════════════════════════════════
+      function initCharts() {
+        const base = {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              ticks: { color: "#444", font: { family: "DM Mono", size: 9 } },
+              grid: { color: "#181818" },
+            },
+            y: {
+              ticks: { color: "#444", font: { family: "DM Mono", size: 9 } },
+              grid: { color: "#181818" },
+            },
+          },
+        };
+        chartDist = new Chart(document.getElementById("chart-dist"), {
+          type: "bar",
+          options: { ...base },
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "km",
+                data: [],
+                backgroundColor: "rgba(200,241,53,.12)",
+                borderColor: "#c8f135",
+                borderWidth: 2,
+                borderRadius: 4,
+              },
+            ],
+          },
+        });
+        chartPace = new Chart(document.getElementById("chart-pace"), {
+          type: "line",
+          options: {
+            ...base,
+            scales: {
+              ...base.scales,
+              y: {
+                ...base.scales.y,
+                reverse: true,
+                ticks: {
+                  color: "#444",
+                  font: { family: "DM Mono", size: 9 },
+                  callback: (v) => v + " min",
+                },
+              },
+            },
+          },
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "pace",
+                data: [],
+                borderColor: "#ff4d4d",
+                backgroundColor: "rgba(255,77,77,.05)",
+                tension: 0.4,
+                pointBackgroundColor: "#ff4d4d",
+                pointRadius: 4,
+                fill: true,
+              },
+            ],
+          },
+        });
+      }
+
+      function renderCharts(runs) {
+        const data = runs
+          .filter((r) => r.type === "run" && r.distance > 0)
+          .reverse()
+          .slice(-10);
+        chartDist.data.labels = data.map((r) => r.date.slice(5));
+        chartDist.data.datasets[0].data = data.map((r) => r.distance);
+        chartDist.update();
+        chartPace.data.labels = data.map((r) => r.date.slice(5));
+        chartPace.data.datasets[0].data = data.map((r) => {
+          if (!r.pace || r.pace === "—") return null;
+          const [m, s] = r.pace.split(":").map(Number);
+          return parseFloat((m + s / 60).toFixed(2));
+        });
+        chartPace.update();
+      }
+
+      // ════════════════════════════════════════
+      // COOPER TEST
+      // ════════════════════════════════════════
+      const LEVEL_MAP = {
+        "Very Poor": 1,
+        Poor: 2,
+        Average: 3,
+        Good: 4,
+        Excellent: 5,
+        Superior: 6,
+      };
+      const LEVEL_CLASS = {
+        "Very Poor": "lv-very-poor",
+        Poor: "lv-poor",
+        Average: "lv-average",
+        Good: "lv-good",
+        Excellent: "lv-excellent",
+        Superior: "lv-superior",
+      };
+      const LEVEL_COLOR = {
+        "Very Poor": "#f87171",
+        Poor: "#facc15",
+        Average: "#60a5fa",
+        Good: "#4ade80",
+        Excellent: "#c8f135",
+        Superior: "#a78bfa",
+      };
+
+      async function loadCooper() {
+        if (!user) return;
+        const tests = await fetch(`/api/cooper/${user.id}`).then((r) =>
+          r.json(),
+        );
+        renderCooperHistory(tests);
+        if (tests.length > 0) showCooperResult(tests[0]);
+      }
+
+      async function submitCooper() {
+        if (!user) return;
+        const date = document.getElementById("c-date").value;
+        const dist = parseFloat(document.getElementById("c-dist").value);
+        if (!date || !dist) {
+          toast("⚠ Fill in date and distance", true);
+          return;
+        }
+
+        const res = await fetch("/api/cooper", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            date,
+            distance_m: dist,
+            notes: document.getElementById("c-notes").value,
+          }),
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          document.getElementById("c-dist").value = "";
+          document.getElementById("c-notes").value = "";
+          setToday("c-date");
+          loadCooper();
+          toast("✓ Cooper test saved");
+          // show inline result
+          showCooperResult({ date, distance_m: dist, ...result });
+        } else {
+          toast("✗ Error saving", true);
+        }
+      }
+
+      function showCooperResult(t) {
+        const el = document.getElementById("cooper-result");
+        el.classList.add("show");
+        document.getElementById("cr-date").textContent = t.date;
+        document.getElementById("cr-dist").textContent = t.distance_m;
+        document.getElementById("cr-vo2").textContent = t.vo2max;
+        document.getElementById("cr-10k").textContent = t.proj_10k;
+
+        const lvl = t.fitness_level;
+        document.getElementById("cr-level").textContent = lvl;
+        document.getElementById("cr-level").className =
+          "result-val " +
+          (LEVEL_MAP[lvl] >= 4
+            ? "green"
+            : LEVEL_MAP[lvl] >= 3
+              ? "yellow"
+              : "red");
+
+        // fitness bar
+        const n = LEVEL_MAP[lvl] || 1;
+        for (let i = 1; i <= 6; i++) {
+          document.getElementById("fb" + i).classList.toggle("lit", i <= n);
+        }
+      }
+
+      function renderCooperHistory(tests) {
+        const list = document.getElementById("cooper-list");
+        document.getElementById("cooper-count").textContent =
+          `${tests.length} tests`;
+        if (!tests.length) {
+          list.innerHTML = `<div class="empty"><span class="big">0</span>No Cooper tests recorded yet</div>`;
+          return;
+        }
+
+        list.innerHTML = tests
+          .map(
+            (t) => `
+    <div class="cooper-row">
+      <div class="r-date">${t.date}</div>
+      <div style="font-family:var(--display);font-size:18px">${t.distance_m}<span style="font-family:var(--mono);font-size:11px;color:var(--muted)"> m</span></div>
+      <div style="font-family:var(--display);font-size:18px;color:var(--blue)">${t.vo2max}</div>
+      <div style="font-family:var(--display);font-size:18px;color:var(--accent)">${t.proj_10k}</div>
+      <div><span class="level-badge ${LEVEL_CLASS[t.fitness_level] || ""}">${t.fitness_level}</span></div>
+      <button class="del-btn" onclick="deleteCooper(${t.id})">✕</button>
+    </div>`,
+          )
+          .join("");
+      }
+
+      async function deleteCooper(id) {
+        await fetch(`/api/cooper/${id}`, { method: "DELETE" });
+        loadCooper();
+      }
+
+      // ════════════════════════════════════════
+      // UTILS
+      // ════════════════════════════════════════
+      function setToday(id) {
+        document.getElementById(id).value = new Date()
+          .toISOString()
+          .split("T")[0];
+      }
+
+      function toast(msg, err = false) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.style.background = err ? "#ff4d4d" : "var(--accent)";
+        t.style.color = err ? "#fff" : "#0a0a0a";
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 2500);
+      }
+    </script>
+  </body>
+</html>
