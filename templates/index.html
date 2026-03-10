@@ -1371,6 +1371,47 @@
           z-index: 160;
         }
 
+        /* ── TYPE BLOCKS: force block + full width, override grid-column ── */
+        #f-intervals,
+        #f-circuit,
+        #f-technique {
+          width: 100%;
+          box-sizing: border-box;
+          /* grid-column: span 2 in the inline style is inert in flex, but
+             we reset grid-column here to avoid any cascade side-effects */
+          grid-column: unset;
+        }
+        #f-intervals .form-grid,
+        #f-circuit .form-grid,
+        #f-technique .form-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          width: 100%;
+        }
+        #f-intervals .form-group,
+        #f-intervals .form-group.full,
+        #f-circuit .form-group,
+        #f-circuit .form-group.full,
+        #f-technique .form-group,
+        #f-technique .form-group.full {
+          grid-column: unset;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        #f-intervals input,
+        #f-intervals textarea,
+        #f-circuit input,
+        #f-circuit textarea,
+        #f-technique input,
+        #f-technique textarea {
+          width: 100%;
+          box-sizing: border-box;
+          font-size: 16px;
+          padding: 16px;
+          border-radius: 14px;
+        }
+
         /* ── PROFILE SCREEN ── */
         #screen-profile {
           gap: 36px;
@@ -1717,7 +1758,8 @@
                         <label>Drills performed</label>
                         <textarea
                           id="f-drills"
-                          placeholder="high knees 2×30m, butt kicks 2×30m, bounding 2×30m..."
+                          placeholder="Ej: High knees 2x30m, Butt kicks 2x30m, Bounding 2x20m"
+                          style="min-height: 120px; width: 100%; box-sizing: border-box"
                         ></textarea>
                       </div>
                     </div>
@@ -2361,7 +2403,7 @@
                 ticks: {
                   color: "#444",
                   font: { family: "DM Mono", size: 9 },
-                  callback: (v) => v + " min",
+                  callback: (v) => Math.round(v) + " min",
                 },
               },
             },
