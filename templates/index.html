@@ -1046,7 +1046,15 @@
         .countdown-days {
           font-size: 52px;
         }
-        .countdown-input-row input {
+        .countdown-input-row {
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .countdown-input-row input[type="date"] {
+          flex: 1 1 100%;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
           font-size: 16px;
           padding: 16px;
           border-radius: 14px;
@@ -1297,13 +1305,30 @@
           margin-top: 12px;
         }
         .cooper-form-inner {
-          gap: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          width: 100%;
+        }
+        .cooper-form-inner .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 20px 0;
+          border-bottom: 1px solid var(--border);
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .cooper-form-inner .form-group:last-of-type {
+          border-bottom: none;
         }
         .cooper-form-inner input,
         .cooper-form-inner textarea {
           font-size: 16px;
           padding: 16px;
           border-radius: 14px;
+          width: 100%;
+          box-sizing: border-box;
         }
         .cooper-form-inner .btn-primary {
           height: 58px;
@@ -1502,9 +1527,9 @@
               <div class="stat-unit">kilometers</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Racha</div>
+              <div class="stat-label">Streak</div>
               <div class="stat-value" id="s-streak">—</div>
-              <div class="stat-unit">días consecutivos</div>
+              <div class="stat-unit">consecutive days</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Avg Pace</div>
@@ -1517,13 +1542,13 @@
               <div class="stat-unit">min / km</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Esta Semana</div>
+              <div class="stat-label">This Week</div>
               <div class="stat-value" id="s-week-sess">—</div>
-              <div class="stat-unit" id="s-week-unit">sesiones</div>
+              <div class="stat-unit" id="s-week-unit">sessions</div>
               <div class="stat-compare" id="s-week-compare"></div>
             </div>
             <div class="stat-card" id="s-last-card">
-              <div class="stat-label">Ultima Sesion</div>
+              <div class="stat-label">Last Session</div>
               <div class="stat-value" id="s-last-val">—</div>
               <div class="stat-unit" id="s-last-unit"></div>
             </div>
@@ -1538,20 +1563,20 @@
 
           <!-- COUNTDOWN -->
           <div class="countdown-section">
-            <div>
+            <div class="countdown-left">
               <div class="stat-label">10K Race Day</div>
               <div class="countdown-days" id="cd-days">—</div>
-              <div class="stat-unit" id="cd-unit">define tu fecha de carrera</div>
+              <div class="stat-unit" id="cd-unit">Set your race date</div>
               <div class="race-bar-wrap" id="cd-bar-wrap" style="display:none">
                 <div class="race-bar-fill" id="cd-bar-fill"></div>
               </div>
               <div class="race-bar-label" id="cd-bar-label"></div>
             </div>
-            <div>
-              <label for="race-date-input">Fecha de la carrera</label>
+            <div class="countdown-right">
+              <label for="race-date-input">Race date</label>
               <div class="countdown-input-row">
                 <input type="date" id="race-date-input" />
-                <button class="btn-sm" onclick="saveRaceDate()">Guardar</button>
+                <button class="btn-sm" onclick="saveRaceDate()">Save</button>
               </div>
             </div>
           </div>
@@ -2081,19 +2106,19 @@
         // This week
         document.getElementById("s-week-sess").textContent = s.week_sessions;
         document.getElementById("s-week-unit").textContent =
-          `sesión${s.week_sessions !== 1 ? "es" : ""} · ${s.week_km}km`;
+          `session${s.week_sessions !== 1 ? "s" : ""} · ${s.week_km}km`;
         const cmpEl = document.getElementById("s-week-compare");
         const sessChange = s.week_sessions - s.prev_week_sessions;
         if (s.prev_week_sessions === 0 && s.week_sessions === 0) {
           cmpEl.textContent = "";
           cmpEl.className = "stat-compare";
         } else if (sessChange === 0) {
-          cmpEl.textContent = "igual que semana pasada";
+          cmpEl.textContent = "same as last week";
           cmpEl.className = "stat-compare";
         } else {
           const n = Math.abs(sessChange);
           const sign = sessChange > 0 ? "+" : "";
-          cmpEl.textContent = `${sign}${sessChange} sesión${n !== 1 ? "es" : ""} vs semana pasada`;
+          cmpEl.textContent = `${sign}${sessChange} session${n !== 1 ? "s" : ""} vs last week`;
           cmpEl.className = "stat-compare" + (sessChange > 0 ? " pos" : " neg");
         }
 
@@ -2103,19 +2128,19 @@
         const lastUnit = document.getElementById("s-last-unit");
         if (s.last_session_days === null || s.last_session_days === undefined) {
           lastVal.textContent  = "—";
-          lastUnit.textContent = "sin sesiones";
+          lastUnit.textContent = "no sessions";
           lastCard.classList.remove("danger");
         } else if (s.last_session_days === 0) {
-          lastVal.textContent  = "Hoy";
-          lastUnit.textContent = "última sesión";
+          lastVal.textContent  = "Today";
+          lastUnit.textContent = "last session";
           lastCard.classList.remove("danger");
         } else if (s.last_session_days === 1) {
-          lastVal.textContent  = "Ayer";
-          lastUnit.textContent = "última sesión";
+          lastVal.textContent  = "Yesterday";
+          lastUnit.textContent = "last session";
           lastCard.classList.remove("danger");
         } else {
           lastVal.textContent  = s.last_session_days;
-          lastUnit.textContent = "días sin entrenar";
+          lastUnit.textContent = "days without training";
           lastCard.classList.toggle("danger", !!s.last_session_alert);
         }
 
@@ -2130,25 +2155,25 @@
         const cdBarLabel = document.getElementById("cd-bar-label");
         if (s.days_to_race !== null && s.days_to_race !== undefined) {
           cdDays.textContent = s.days_to_race > 0 ? s.days_to_race : "0";
-          cdUnit.textContent = s.days_to_race > 0 ? "días restantes" : "carrera finalizada";
+          cdUnit.textContent = s.days_to_race > 0 ? "days remaining" : "race completed";
         } else {
           cdDays.textContent = "—";
-          cdUnit.textContent = "define tu fecha de carrera";
+          cdUnit.textContent = "Set your race date";
         }
         if (s.race_progress !== null && s.race_progress !== undefined) {
           cdBarWrap.style.display = "block";
           cdBarFill.style.width   = s.race_progress + "%";
-          cdBarLabel.textContent  = `Preparacion fisica: ${s.race_progress}%`;
+          cdBarLabel.textContent  = `Fitness readiness: ${s.race_progress}%`;
         } else {
           cdBarWrap.style.display = "none";
-          cdBarLabel.textContent  = "Completa un Cooper Test para ver tu preparacion";
+          cdBarLabel.textContent  = "Complete a Cooper Test to see your readiness";
         }
       }
 
       async function saveRaceDate() {
         if (!user) return;
         const d = document.getElementById("race-date-input").value;
-        if (!d) { toast("Selecciona una fecha", true); return; }
+        if (!d) { toast("Select a date", true); return; }
         const res = await fetch(`/api/race_date/${user.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2156,9 +2181,9 @@
         });
         if (res.ok) {
           loadDashboard();
-          toast("Fecha de carrera guardada");
+          toast("Race date saved");
         } else {
-          toast("Error al guardar", true);
+          toast("Error saving", true);
         }
       }
 
@@ -2221,17 +2246,17 @@
           notes: document.getElementById("f-notes").value,
         };
         if (sessionType === "run") {
-          const dist = parseFloat(document.getElementById("f-dist").value);
-          const sec =
-            (parseInt(document.getElementById("f-hh").value) || 0) * 3600 +
-            (parseInt(document.getElementById("f-mm").value) || 0) * 60 +
-            (parseInt(document.getElementById("f-ss").value) || 0);
-          if (!dist || sec === 0) {
-            toast("⚠ Fill in distance and time", true);
+          const dist = parseFloat(document.getElementById("f-dist").value) || 0;
+          const hh   = parseInt(document.getElementById("f-hh").value) || 0;
+          const mm   = parseInt(document.getElementById("f-mm").value) || 0;
+          const ss   = parseInt(document.getElementById("f-ss").value) || 0;
+          const time_seconds = (hh * 3600) + (mm * 60) + ss;
+          if (!dist || time_seconds === 0) {
+            toast("Fill in distance and time", true);
             return;
           }
-          payload.distance = dist;
-          payload.time_seconds = sec;
+          payload.distance     = dist;
+          payload.time_seconds = time_seconds;
         }
         if (sessionType === "intervals") {
           payload.interval_dist =

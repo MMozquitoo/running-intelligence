@@ -4,7 +4,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, date, timedelta
 
-app = Flask(__name__, template_folder="../templates", static_folder="../static")
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+app = Flask(__name__,
+            template_folder=os.path.join(_root, "templates"),
+            static_folder=os.path.join(_root, "static"))
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
