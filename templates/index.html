@@ -223,7 +223,7 @@
       /* ── STATS GRID ── */
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 12px;
         margin-bottom: 32px;
       }
@@ -237,21 +237,13 @@
         transition: border-color 0.2s;
         animation: fadeUp 0.4s ease both;
       }
-      .stat-card:nth-child(1) {
-        animation-delay: 0.05s;
-      }
-      .stat-card:nth-child(2) {
-        animation-delay: 0.1s;
-      }
-      .stat-card:nth-child(3) {
-        animation-delay: 0.15s;
-      }
-      .stat-card:nth-child(4) {
-        animation-delay: 0.2s;
-      }
-      .stat-card:nth-child(5) {
-        animation-delay: 0.25s;
-      }
+      .stat-card:nth-child(1) { animation-delay: 0.05s; }
+      .stat-card:nth-child(2) { animation-delay: 0.1s; }
+      .stat-card:nth-child(3) { animation-delay: 0.15s; }
+      .stat-card:nth-child(4) { animation-delay: 0.2s; }
+      .stat-card:nth-child(5) { animation-delay: 0.25s; }
+      .stat-card:nth-child(6) { animation-delay: 0.3s; }
+      .stat-card:nth-child(7) { animation-delay: 0.35s; }
       .stat-card::after {
         content: "";
         position: absolute;
@@ -269,6 +261,13 @@
       .stat-card.hl {
         border-color: rgba(200, 241, 53, 0.25);
         background: rgba(200, 241, 53, 0.03);
+        grid-column: span 2;
+      }
+      .stat-card.danger {
+        border-color: rgba(255, 77, 77, 0.4);
+      }
+      .stat-card.danger .stat-value {
+        color: var(--red);
       }
       .stat-label {
         font-family: var(--mono);
@@ -292,6 +291,84 @@
         color: var(--muted);
         margin-top: 4px;
       }
+      .stat-compare {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        margin-top: 6px;
+        letter-spacing: 0.5px;
+      }
+      .stat-compare.pos { color: #4ade80; }
+      .stat-compare.neg { color: var(--red); }
+
+      /* ── COUNTDOWN ── */
+      .countdown-section {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: center;
+        animation: fadeUp 0.4s ease 0.4s both;
+      }
+      .countdown-days {
+        font-family: var(--display);
+        font-size: 52px;
+        line-height: 1;
+        color: var(--accent);
+      }
+      .race-bar-wrap {
+        margin-top: 10px;
+        background: var(--border);
+        height: 5px;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .race-bar-fill {
+        height: 100%;
+        background: var(--accent);
+        border-radius: 3px;
+        transition: width 0.6s ease;
+      }
+      .race-bar-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        margin-top: 6px;
+        letter-spacing: 1px;
+      }
+      .countdown-input-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      .countdown-input-row input {
+        flex: 1;
+        min-width: 0;
+      }
+      .btn-sm {
+        font-family: var(--display);
+        font-size: 13px;
+        letter-spacing: 1px;
+        padding: 11px 16px;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        background: var(--accent);
+        color: #0a0a0a;
+        white-space: nowrap;
+        transition: background 0.15s;
+        flex-shrink: 0;
+      }
+      .btn-sm:hover { background: #d4f545; }
+
+      /* ── INTERVAL TREND ── */
+      .trend-up   { color: #4ade80; font-size: 11px; margin-left: 4px; }
+      .trend-down { color: var(--red); font-size: 11px; margin-left: 4px; }
+      .trend-eq   { color: var(--muted); font-size: 11px; margin-left: 4px; }
 
       /* ── TWO COL ── */
       .two-col {
@@ -820,6 +897,13 @@
           grid-template-columns: repeat(3, 1fr);
           gap: 10px;
         }
+        .stat-card.hl {
+          grid-column: span 3;
+        }
+        .countdown-section {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
         .two-col {
           grid-template-columns: 1fr;
         }
@@ -891,6 +975,19 @@
           font-size: 9px;
           margin-top: 3px;
         }
+        .stat-compare {
+          font-size: 8px;
+          margin-top: 4px;
+        }
+
+        /* countdown */
+        .countdown-section {
+          grid-template-columns: 1fr;
+          gap: 16px;
+          padding: 18px 16px;
+        }
+        .countdown-days { font-size: 44px; }
+        .countdown-input-row input { font-size: 16px; }
 
         /* 10k projection full width */
         .stat-card.hl {
@@ -1230,9 +1327,9 @@
               <div class="stat-unit">kilometers</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">This Week</div>
-              <div class="stat-value" id="s-week">0</div>
-              <div class="stat-unit">km / week</div>
+              <div class="stat-label">Racha</div>
+              <div class="stat-value" id="s-streak">—</div>
+              <div class="stat-unit">días consecutivos</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Avg Pace</div>
@@ -1244,11 +1341,42 @@
               <div class="stat-value" id="s-best">—</div>
               <div class="stat-unit">min / km</div>
             </div>
+            <div class="stat-card">
+              <div class="stat-label">Esta Semana</div>
+              <div class="stat-value" id="s-week-sess">—</div>
+              <div class="stat-unit" id="s-week-unit">sesiones</div>
+              <div class="stat-compare" id="s-week-compare"></div>
+            </div>
+            <div class="stat-card" id="s-last-card">
+              <div class="stat-label">Ultima Sesion</div>
+              <div class="stat-value" id="s-last-val">—</div>
+              <div class="stat-unit" id="s-last-unit"></div>
+            </div>
             <div class="stat-card hl">
               <div>
-                <div class="stat-label">🎯 10k Projection</div>
+                <div class="stat-label">10k Projection</div>
                 <div class="stat-value ac" id="s-10k">—</div>
                 <div class="stat-unit">estimated time</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COUNTDOWN -->
+          <div class="countdown-section">
+            <div>
+              <div class="stat-label">10K Race Day</div>
+              <div class="countdown-days" id="cd-days">—</div>
+              <div class="stat-unit" id="cd-unit">define tu fecha de carrera</div>
+              <div class="race-bar-wrap" id="cd-bar-wrap" style="display:none">
+                <div class="race-bar-fill" id="cd-bar-fill"></div>
+              </div>
+              <div class="race-bar-label" id="cd-bar-label"></div>
+            </div>
+            <div>
+              <label for="race-date-input">Fecha de la carrera</label>
+              <div class="countdown-input-row">
+                <input type="date" id="race-date-input" />
+                <button class="btn-sm" onclick="saveRaceDate()">Guardar</button>
               </div>
             </div>
           </div>
@@ -1266,28 +1394,28 @@
                     data-type="run"
                     onclick="setType('run')"
                   >
-                    🏃 Run
+                    Run
                   </button>
                   <button
                     class="tab"
                     data-type="intervals"
                     onclick="setType('intervals')"
                   >
-                    ⚡ Intervals
+                    Intervals
                   </button>
                   <button
                     class="tab"
                     data-type="circuit"
                     onclick="setType('circuit')"
                   >
-                    🔄 Circuit
+                    Circuit
                   </button>
                   <button
                     class="tab"
                     data-type="technique"
                     onclick="setType('technique')"
                   >
-                    🎯 Technique
+                    Technique
                   </button>
                 </div>
 
@@ -1740,11 +1868,98 @@
       }
 
       function renderStats(s) {
+        // Classic
         document.getElementById("s-total").textContent = s.total_km;
-        document.getElementById("s-week").textContent = s.weekly_km;
         document.getElementById("s-avg").textContent = s.avg_pace;
         document.getElementById("s-best").textContent = s.best_pace;
         document.getElementById("s-10k").textContent = s.proj_10k || "—";
+
+        // Streak
+        document.getElementById("s-streak").textContent =
+          s.streak > 0 ? s.streak : "—";
+
+        // This week
+        document.getElementById("s-week-sess").textContent = s.week_sessions;
+        document.getElementById("s-week-unit").textContent =
+          `sesión${s.week_sessions !== 1 ? "es" : ""} · ${s.week_km}km`;
+        const cmpEl = document.getElementById("s-week-compare");
+        const sessChange = s.week_sessions - s.prev_week_sessions;
+        if (s.prev_week_sessions === 0 && s.week_sessions === 0) {
+          cmpEl.textContent = "";
+          cmpEl.className = "stat-compare";
+        } else if (sessChange === 0) {
+          cmpEl.textContent = "igual que semana pasada";
+          cmpEl.className = "stat-compare";
+        } else {
+          const n = Math.abs(sessChange);
+          const sign = sessChange > 0 ? "+" : "";
+          cmpEl.textContent = `${sign}${sessChange} sesión${n !== 1 ? "es" : ""} vs semana pasada`;
+          cmpEl.className = "stat-compare" + (sessChange > 0 ? " pos" : " neg");
+        }
+
+        // Last session
+        const lastCard = document.getElementById("s-last-card");
+        const lastVal  = document.getElementById("s-last-val");
+        const lastUnit = document.getElementById("s-last-unit");
+        if (s.last_session_days === null || s.last_session_days === undefined) {
+          lastVal.textContent  = "—";
+          lastUnit.textContent = "sin sesiones";
+          lastCard.classList.remove("danger");
+        } else if (s.last_session_days === 0) {
+          lastVal.textContent  = "Hoy";
+          lastUnit.textContent = "última sesión";
+          lastCard.classList.remove("danger");
+        } else if (s.last_session_days === 1) {
+          lastVal.textContent  = "Ayer";
+          lastUnit.textContent = "última sesión";
+          lastCard.classList.remove("danger");
+        } else {
+          lastVal.textContent  = s.last_session_days;
+          lastUnit.textContent = "días sin entrenar";
+          lastCard.classList.toggle("danger", !!s.last_session_alert);
+        }
+
+        // Race countdown
+        if (s.race_date) {
+          document.getElementById("race-date-input").value = s.race_date;
+        }
+        const cdDays     = document.getElementById("cd-days");
+        const cdUnit     = document.getElementById("cd-unit");
+        const cdBarWrap  = document.getElementById("cd-bar-wrap");
+        const cdBarFill  = document.getElementById("cd-bar-fill");
+        const cdBarLabel = document.getElementById("cd-bar-label");
+        if (s.days_to_race !== null && s.days_to_race !== undefined) {
+          cdDays.textContent = s.days_to_race > 0 ? s.days_to_race : "0";
+          cdUnit.textContent = s.days_to_race > 0 ? "días restantes" : "carrera finalizada";
+        } else {
+          cdDays.textContent = "—";
+          cdUnit.textContent = "define tu fecha de carrera";
+        }
+        if (s.race_progress !== null && s.race_progress !== undefined) {
+          cdBarWrap.style.display = "block";
+          cdBarFill.style.width   = s.race_progress + "%";
+          cdBarLabel.textContent  = `Preparacion fisica: ${s.race_progress}%`;
+        } else {
+          cdBarWrap.style.display = "none";
+          cdBarLabel.textContent  = "Completa un Cooper Test para ver tu preparacion";
+        }
+      }
+
+      async function saveRaceDate() {
+        if (!user) return;
+        const d = document.getElementById("race-date-input").value;
+        if (!d) { toast("Selecciona una fecha", true); return; }
+        const res = await fetch(`/api/race_date/${user.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ race_date: d }),
+        });
+        if (res.ok) {
+          loadDashboard();
+          toast("Fecha de carrera guardada");
+        } else {
+          toast("Error al guardar", true);
+        }
       }
 
       function setType(type) {
@@ -1896,6 +2111,20 @@
               s = r.time_seconds % 60;
             const timeStr =
               r.time_seconds > 0 ? `${m}:${String(s).padStart(2, "0")}` : "—";
+            const paceDisplay =
+              r.type === "intervals" && r.interval_pace
+                ? r.interval_pace
+                : r.pace && r.pace !== "—"
+                ? r.pace
+                : "—";
+            const trendHtml =
+              r.interval_trend === "up"
+                ? '<span class="trend-up">↑</span>'
+                : r.interval_trend === "down"
+                ? '<span class="trend-down">↓</span>'
+                : r.interval_trend === "equal"
+                ? '<span class="trend-eq">=</span>'
+                : "";
             const ec =
               r.effort <= 3 ? "#4ade80" : r.effort <= 6 ? "#facc15" : "#f87171";
             let detail = "—";
@@ -1915,7 +2144,7 @@
       <div class="r-date">${r.date}</div>
       <div><span class="type-badge type-${r.type}">${r.type}</span></div>
       <div class="r-dist">${dist}</div>
-      <div class="r-pace">${r.pace && r.pace !== "—" ? r.pace : "—"}</div>
+      <div class="r-pace">${paceDisplay}${trendHtml}</div>
       <div class="r-detail">${detail}</div>
       <div class="rpe-badge" style="background:${ec}22;color:${ec};border:1px solid ${ec}44">${r.effort}</div>
       <button class="del-btn" onclick="deleteRun(${r.id})">✕</button>
