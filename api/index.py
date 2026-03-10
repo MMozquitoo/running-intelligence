@@ -203,19 +203,32 @@ def api_stats(user_id):
 # ─────────────────────────────────────────
 
 def _cooper_calc(distance_m):
+    # VO2max — Cooper formula (ml/kg/min)
     vo2max = round((distance_m - 504.9) / 44.73, 1)
+
+    # Fitness level
     if vo2max < 28:   level = "Very Poor"
     elif vo2max < 34: level = "Poor"
     elif vo2max < 42: level = "Average"
     elif vo2max < 52: level = "Good"
     elif vo2max < 60: level = "Excellent"
     else:             level = "Superior"
+
+    # 10k projection — Daniels VDOT formula
+    # pace_per_km (min) = 29.54 / vo2max^0.5765
+    # Validated: VO2max 42 → ~58 min, VO2max 52 → ~47 min, VO2max 60 → ~41 min
     try:
-        vdot_pace = 60 / (0.000104 * vo2max**2 + 0.1981 * vo2max - 4.6)
-        total_s   = int(vdot_pace * 10 * 60)
-        proj_10k  = f"{total_s//60}:{total_s%60:02d}"
+        pace_min_km = 29.54 / (vo2max ** 0.5765)
+        total_min   = pace_min_km * 10
+        mins        = int(total_min)
+        secs        = int(round((total_min - mins) * 60))
+        if secs == 60:
+            mins += 1
+            secs  = 0
+        proj_10k = f"{mins}:{secs:02d}"
     except Exception:
         proj_10k = "—"
+
     return vo2max, level, proj_10k
 
 
