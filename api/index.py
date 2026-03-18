@@ -774,6 +774,23 @@ def api_session_results():
     return jsonify({"message": "Results saved", "session_id": session_id}), 201
 
 
+@app.route("/api/user/<int:user_id>/profile", methods=["PUT"])
+def api_update_profile(user_id):
+    d = request.get_json()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
+    row = c.fetchone()
+    if not row:
+        c.close(); conn.close()
+        return jsonify({"error": "User not found"}), 404
+    existing = dict(row["profile_data"]) if row["profile_data"] else {}
+    existing.update(d)
+    c.execute("UPDATE users SET profile_data = %s WHERE id = %s", (json.dumps(existing), user_id))
+    conn.commit(); c.close(); conn.close()
+    return jsonify({"profile_data": existing})
+
+
 @app.route("/api/training-sessions/<int:user_id>")
 def api_get_training_sessions(user_id):
     conn = get_conn()

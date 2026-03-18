@@ -2,22 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Running Intelligence</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --bg: #0a0a0a;
-      --card-bg: rgba(255,255,255,0.04);
-      --card-border: rgba(255,255,255,0.08);
-      --accent: #c8ff00;
-      --text: #f0f0f0;
-      --muted: rgba(255,255,255,0.45);
-      --input-border: rgba(255,255,255,0.12);
-      --radius: 16px;
-      --radius-sm: 10px;
+      --surface: #111111;
+      --surface-2: #1a1a1a;
+      --border: rgba(255,255,255,0.08);
+      --text: #ffffff;
+      --text-secondary: rgba(255,255,255,0.45);
+      --text-muted: rgba(255,255,255,0.25);
+      --accent: #ffffff;
+      --accent-bg: rgba(255,255,255,0.06);
+      --danger: #ff4444;
     }
 
     body {
@@ -29,441 +31,211 @@
       overflow-x: hidden;
     }
 
-    /* ── PROFILE SCREEN ── */
-    #screen-profile {
-      position: fixed; inset: 0; z-index: 200;
+    /* ── USER SELECT SCREEN ── */
+    #screen-select {
+      position: fixed; inset: 0; z-index: 300;
       background: var(--bg);
-      display: none;
+      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 48px;
-    }
-    #screen-profile.active { display: flex; }
-
-    .profile-logo {
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      text-align: center;
-    }
-    .profile-logo span { color: var(--accent); }
-
-    .profile-sub {
-      font-size: 11px;
-      color: var(--muted);
-      letter-spacing: 2px;
-      margin-top: 6px;
-      text-align: center;
-    }
-
-    .profile-cards {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-      justify-content: center;
-      padding: 0 20px;
-    }
-
-    .profile-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 32px 28px;
-      cursor: pointer;
-      text-align: center;
-      transition: border-color 0.2s, background 0.2s;
-      min-width: 140px;
-      backdrop-filter: blur(12px);
-    }
-    .profile-card:hover {
-      border-color: var(--accent);
-      background: rgba(200,255,0,0.04);
-    }
-    .profile-card-name {
-      font-size: 18px;
-      font-weight: 600;
-      margin-top: 12px;
-    }
-    .profile-card-sub {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
-      letter-spacing: 1px;
-    }
-    .profile-avatar {
-      width: 48px; height: 48px;
-      border-radius: 50%;
-      background: rgba(200,255,0,0.12);
-      border: 1px solid rgba(200,255,0,0.3);
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto;
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--accent);
-    }
-
-    /* ── MAIN APP ── */
-    #screen-app {
-      display: none;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    #screen-app.active { display: flex; }
-
-    /* ── HEADER ── */
-    .app-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--card-border);
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(10,10,10,0.9);
-      backdrop-filter: blur(12px);
-    }
-    .header-logo {
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-    }
-    .header-logo span { color: var(--accent); }
-
-    .header-nav { display: flex; gap: 4px; }
-    .nav-tab {
-      padding: 6px 16px;
-      border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      background: none;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .nav-tab.active {
-      color: var(--text);
-      border-color: var(--card-border);
-      background: var(--card-bg);
-    }
-    .nav-tab:hover:not(.active) { color: var(--text); }
-
-    .header-user {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .header-user-name {
-      font-size: 13px;
-      font-weight: 600;
-    }
-    .btn-switch {
-      padding: 6px 12px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--card-border);
-      background: none;
-      color: var(--muted);
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-switch:hover { color: var(--text); border-color: var(--muted); }
-
-    /* ── MAIN CONTENT ── */
-    .app-content {
-      flex: 1;
       padding: 24px;
     }
 
-    /* ── TAB PANELS ── */
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    /* ── HOME: TWO COLUMN ── */
-    .home-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    @media (max-width: 900px) {
-      .home-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* ── CARD ── */
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 20px;
-      backdrop-filter: blur(12px);
-    }
-
-    .card-title {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 16px;
-    }
-
-    /* ── CHAT ── */
-    .chat-wrap {
-      display: flex;
-      flex-direction: column;
-      height: 580px;
-    }
-
-    .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding-right: 4px;
-      margin-bottom: 16px;
-    }
-
-    .chat-messages::-webkit-scrollbar { width: 4px; }
-    .chat-messages::-webkit-scrollbar-track { background: transparent; }
-    .chat-messages::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
-
-    .chat-empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      gap: 8px;
-      color: var(--muted);
+    .app-logo {
       font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
       text-align: center;
+      line-height: 1.8;
     }
+    .app-logo span { font-weight: 300; color: var(--text-secondary); }
 
-    .chat-empty-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .msg {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      max-width: 88%;
-    }
-    .msg.user { align-self: flex-end; align-items: flex-end; }
-    .msg.ai { align-self: flex-start; align-items: flex-start; }
-
-    .msg-bubble {
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-size: 14px;
-      line-height: 1.55;
-      white-space: pre-wrap;
-    }
-    .msg.user .msg-bubble {
-      background: var(--accent);
-      color: #0a0a0a;
-      font-weight: 500;
-      border-radius: 12px 12px 2px 12px;
-    }
-    .msg.ai .msg-bubble {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid var(--card-border);
-      border-radius: 12px 12px 12px 2px;
-    }
-
-    .msg-label {
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      padding: 0 4px;
-    }
-
-    .chat-plan-box {
-      background: rgba(200,255,0,0.05);
-      border: 1px solid rgba(200,255,0,0.2);
-      border-radius: var(--radius-sm);
-      padding: 12px 16px;
-      margin-top: 8px;
-    }
-    .chat-plan-box-title {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 8px;
-    }
-    .plan-items {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 12px;
-    }
-    .plan-item {
-      font-size: 13px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .plan-item::before {
-      content: '';
-      width: 4px; height: 4px;
-      border-radius: 50%;
-      background: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .btn-confirm {
-      width: 100%;
-      padding: 10px;
-      border-radius: var(--radius-sm);
-      border: none;
-      background: var(--accent);
-      color: #0a0a0a;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .btn-confirm:hover { opacity: 0.85; }
-
-    .chat-input-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
-
-    .chat-input {
-      flex: 1;
-      background: transparent;
-      border: 1px solid var(--input-border);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 14px;
-      resize: none;
-      outline: none;
-      transition: border-color 0.2s;
-      min-height: 44px;
-      max-height: 120px;
-    }
-    .chat-input:focus { border-color: rgba(255,255,255,0.25); }
-    .chat-input::placeholder { color: var(--muted); }
-
-    .btn-send {
-      padding: 10px 18px;
-      border-radius: var(--radius-sm);
-      border: none;
-      background: var(--accent);
-      color: #0a0a0a;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s;
-      white-space: nowrap;
-      height: 44px;
-    }
-    .btn-send:disabled { opacity: 0.4; cursor: default; }
-    .btn-send:not(:disabled):hover { opacity: 0.85; }
-
-    /* ── TRACKING FORM ── */
-    .tracking-form {
+    .user-cards {
       display: flex;
       flex-direction: column;
       gap: 10px;
-    }
-
-    .tracking-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      background: rgba(255,255,255,0.02);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-sm);
-    }
-
-    .tracking-label {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .tracking-type-badge {
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-
-    .time-input-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-
-    .time-min, .time-sec {
-      width: 52px;
-      background: transparent;
-      border: 1px solid var(--input-border);
-      border-radius: 8px;
-      padding: 6px 8px;
-      color: var(--text);
-      font-family: 'Inter', monospace;
-      font-size: 14px;
-      text-align: center;
-      outline: none;
-      -moz-appearance: textfield;
-    }
-    .time-min::-webkit-outer-spin-button,
-    .time-min::-webkit-inner-spin-button,
-    .time-sec::-webkit-outer-spin-button,
-    .time-sec::-webkit-inner-spin-button { -webkit-appearance: none; }
-    .time-min:focus, .time-sec:focus { border-color: rgba(255,255,255,0.3); }
-    .time-min::placeholder, .time-sec::placeholder { color: var(--muted); }
-
-    .time-sep {
-      font-size: 11px;
-      color: var(--muted);
-      letter-spacing: 0.5px;
-    }
-
-    .btn-save-results {
-      margin-top: 4px;
-      padding: 12px;
-      border-radius: var(--radius-sm);
-      border: none;
-      background: var(--accent);
-      color: #0a0a0a;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: opacity 0.2s;
       width: 100%;
+      max-width: 300px;
     }
-    .btn-save-results:hover { opacity: 0.85; }
 
-    /* ── DASHBOARD ── */
+    .user-card-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s;
+    }
+    .user-card-btn:hover { border-color: rgba(255,255,255,0.2); }
+    .user-card-btn:active { background: var(--surface-2); }
+
+    /* ── APP SHELL ── */
+    #app { display: none; min-height: 100vh; }
+    #app.visible { display: block; }
+
+    /* ── DESKTOP HEADER ── */
+    #desktop-header {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      padding: 0 24px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    @media (min-width: 768px) { #desktop-header { display: flex; } }
+
+    .header-logo {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .header-logo span { font-weight: 300; color: var(--text-secondary); }
+
+    #desktop-user-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 10px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* ── MAIN CONTENT ── */
+    main {
+      padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    }
+    @media (min-width: 768px) {
+      main { padding-top: 56px; max-width: 580px; margin: 0 auto; }
+    }
+
+    .tab-content { display: none; padding: 20px 16px; }
+    .tab-content.active { display: block; }
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: rgba(10,10,10,0.92);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px 16px;
+      transition: color 0.2s;
+    }
+    .nav-item.active { color: var(--text); }
+    .nav-item svg {
+      width: 22px; height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .nav-add {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 300;
+      line-height: 1;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .nav-add:active { transform: scale(0.93); }
+
+    /* ── HOME TAB ── */
+    .home-user-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .home-user-left { display: flex; flex-direction: column; gap: 6px; }
+
+    .user-name {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .mobile-user-switch {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    @media (min-width: 768px) { .mobile-user-switch { display: none; } }
+
+    .race-pill {
+      background: var(--accent-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -471,1440 +243,1168 @@
       margin-bottom: 16px;
     }
 
-    .stat-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
+    .stat-tile {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
     }
 
     .stat-label {
       font-size: 10px;
       font-weight: 600;
-      letter-spacing: 1.5px;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .stat-value {
-      font-size: 24px;
+      font-size: 28px;
       font-weight: 300;
       line-height: 1;
+      margin-bottom: 3px;
     }
-
-    .stat-value.accent { color: var(--accent); }
 
     .stat-sub {
       font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
+      color: var(--text-secondary);
     }
 
-    .stat-sub.alert { color: #ff6b6b; }
-
-    /* ── RACE BLOCK ── */
-    .race-block {
-      background: rgba(200,255,0,0.03);
-      border: 1px solid rgba(200,255,0,0.1);
-      border-radius: var(--radius-sm);
-      padding: 16px;
+    /* ── PERF CARD ── */
+    .perf-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
       margin-bottom: 16px;
+      overflow: hidden;
     }
 
-    .race-days {
-      font-size: 48px;
+    .perf-header {
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .perf-arrow {
+      font-size: 20px;
       font-weight: 300;
-      color: var(--accent);
+      color: var(--text-secondary);
+      transition: transform 0.2s;
+      line-height: 1;
+    }
+    .perf-arrow.open { transform: rotate(45deg); }
+
+    .perf-body { border-top: 1px solid var(--border); }
+
+    .perf-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+    .perf-row:last-child { border-bottom: none; }
+    .perf-dist { color: var(--text-secondary); font-weight: 500; letter-spacing: 0.03em; }
+    .perf-time { font-weight: 300; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── RECENT SESSIONS LIST ── */
+    .list-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0 16px;
+    }
+
+    .session-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .session-row:last-child { border-bottom: none; }
+
+    .session-info { display: flex; flex-direction: column; gap: 3px; }
+
+    .session-type {
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: capitalize;
+    }
+
+    .session-date { font-size: 11px; color: var(--text-muted); }
+
+    .session-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+    .session-dist { font-size: 14px; font-weight: 300; }
+    .session-pace { font-size: 11px; color: var(--text-secondary); }
+
+    /* ── CHART CARDS ── */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .chart-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    @media (min-width: 768px) { .modal-overlay { align-items: center; } }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-width: 480px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 24px 20px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+    @media (min-width: 768px) { .modal { border-radius: 20px; max-height: 82vh; } }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-header span { font-size: 16px; font-weight: 600; }
+
+    .modal-close {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--accent-bg);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       line-height: 1;
     }
 
-    .race-label {
+    /* ── TYPE SELECTOR ── */
+    .type-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .type-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .type-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+    }
+
+    /* ── FORM FIELDS ── */
+    .field-group { margin-bottom: 16px; }
+
+    .field-group label {
+      display: block;
       font-size: 11px;
       font-weight: 600;
-      letter-spacing: 2px;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .field-group input[type="text"],
+    .field-group input[type="number"],
+    .field-group input[type="date"],
+    .field-group textarea,
+    .field-group select {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      padding: 11px 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      -webkit-appearance: none;
+    }
+    .field-group input:focus,
+    .field-group textarea:focus { border-color: rgba(255,255,255,0.25); }
+    .field-group textarea { resize: none; }
+    .field-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    .time-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .time-row input {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      padding: 11px 6px;
+      text-align: center;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .time-row input:focus { border-color: rgba(255,255,255,0.25); }
+    .time-row span { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      width: 100%;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 4px;
+    }
+    .btn-primary:active { opacity: 0.8; }
+
+    .btn-secondary {
+      background: var(--accent-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-secondary:active { background: var(--surface-2); }
+
+    .btn-danger {
+      background: none;
+      border: none;
+      color: var(--danger);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px;
+      opacity: 0.8;
+    }
+    .btn-danger:hover { opacity: 1; }
+
+    /* ── COOPER TAB ── */
+    .cooper-form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .cooper-result {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 16px;
+      display: none;
+    }
+    .cooper-result.visible { display: block; }
+
+    .cooper-result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    .cooper-stat { display: flex; flex-direction: column; gap: 4px; }
+    .cooper-stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .cooper-stat-value { font-size: 20px; font-weight: 300; }
+
+    .cooper-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+    .cooper-row:last-child { border-bottom: none; }
+    .cooper-info { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+    .cooper-date { font-size: 11px; color: var(--text-muted); }
+    .cooper-dist { font-size: 14px; font-weight: 400; }
+    .cooper-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+    .cooper-vo2 { font-size: 14px; font-weight: 300; }
+    .cooper-level { font-size: 11px; color: var(--text-secondary); }
+
+    /* ── GOALS TAB ── */
+    .goal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 14px;
+    }
+
+    .goal-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    .goal-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .goal-input-row input {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      padding: 10px 14px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .goal-input-row input:focus { border-color: rgba(255,255,255,0.25); }
+
+    .days-remaining {
+      font-size: 36px;
+      font-weight: 300;
+      margin-top: 16px;
+      line-height: 1;
+    }
+    .days-remaining-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
       margin-top: 4px;
     }
 
     .progress-bar {
       height: 3px;
-      background: var(--card-border);
+      background: var(--surface-2);
       border-radius: 2px;
-      margin-top: 12px;
+      margin: 14px 0 8px;
       overflow: hidden;
     }
-
     .progress-fill {
       height: 100%;
-      background: var(--accent);
+      background: var(--text);
       border-radius: 2px;
-      transition: width 0.6s ease;
+      transition: width 0.4s ease;
     }
+    .goal-sub { font-size: 12px; color: var(--text-secondary); }
 
-    .progress-label {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 6px;
-    }
-
-    .race-date-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .input-date {
-      flex: 1;
-      background: transparent;
-      border: 1px solid var(--input-border);
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 13px;
-      outline: none;
-    }
-    .input-date:focus { border-color: rgba(255,255,255,0.25); }
-
-    .btn-sm {
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--card-border);
-      background: none;
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ── RECENT SESSIONS ── */
-    .session-cards {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .session-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      background: rgba(255,255,255,0.02);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-sm);
-    }
-
-    .session-date {
-      font-size: 12px;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .session-detail {
-      flex: 1;
-      font-size: 13px;
-    }
-
-    .session-status {
+    .targets-table { width: 100%; border-collapse: collapse; }
+    .targets-table th {
       font-size: 10px;
       font-weight: 600;
-      letter-spacing: 1px;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 6px;
-    }
-    .session-status.completed {
-      background: rgba(200,255,0,0.1);
-      color: var(--accent);
-    }
-    .session-status.pending {
-      background: rgba(255,255,255,0.06);
-      color: var(--muted);
-    }
-    .session-status.in_progress {
-      background: rgba(100,180,255,0.1);
-      color: #60a5fa;
-    }
-
-    .empty-state {
-      padding: 24px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    /* ── COOPER TAB ── */
-    .cooper-wrap {
-      max-width: 680px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .form-label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .form-input {
-      background: transparent;
-      border: 1px solid var(--input-border);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .form-input:focus { border-color: rgba(255,255,255,0.25); }
-
-    .form-row { display: flex; gap: 12px; }
-    .form-row .form-group { flex: 1; }
-
-    .btn-primary {
-      padding: 12px 24px;
-      border-radius: var(--radius-sm);
-      border: none;
-      background: var(--accent);
-      color: #0a0a0a;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: opacity 0.2s;
-      width: 100%;
-    }
-    .btn-primary:hover { opacity: 0.85; }
-
-    .cooper-result {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 20px;
-      display: none;
-    }
-    .cooper-result.visible { display: block; }
-
-    .fitness-bar {
-      display: flex;
-      height: 6px;
-      border-radius: 4px;
-      overflow: hidden;
-      gap: 2px;
-      margin: 12px 0;
-    }
-
-    .fitness-seg {
-      flex: 1;
-      background: var(--card-border);
-      border-radius: 2px;
-      transition: background 0.3s;
-    }
-    .fitness-seg.active { background: var(--accent); }
-
-    .result-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    .result-item { text-align: center; }
-    .result-value { font-size: 20px; font-weight: 300; }
-    .result-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
-
-    .history-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    .history-table th {
+      color: var(--text-muted);
+      padding: 0 0 10px;
       text-align: left;
-      padding: 8px 12px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--muted);
-      border-bottom: 1px solid var(--card-border);
     }
-    .history-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-    }
-    .history-table tr:last-child td { border-bottom: none; }
-
-    .btn-delete {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 12px;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
-      transition: all 0.2s;
-    }
-    .btn-delete:hover { color: #ff6b6b; background: rgba(255,107,107,0.08); }
-
-    /* ── LOG TAB ── */
-    .log-wrap {
-      max-width: 680px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .type-tabs {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .type-tab {
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--card-border);
-      background: none;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .type-tab.active {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: rgba(200,255,0,0.06);
-    }
-
-    .type-fields { display: none; }
-    .type-fields.active { display: contents; }
-
-    .effort-slider {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-
-    .pace-preview {
+    .targets-table th:last-child { text-align: right; }
+    .targets-table td {
       font-size: 13px;
-      color: var(--accent);
-      font-weight: 600;
+      padding: 10px 0;
+      border-top: 1px solid var(--border);
     }
+    .targets-table td:first-child { color: var(--text-secondary); font-weight: 500; }
+    .targets-table td:last-child { text-align: right; font-weight: 300; }
 
-    /* ── HISTORY TAB ── */
-    .history-wrap {
-      max-width: 960px;
-      margin: 0 auto;
-    }
-
-    .run-type-badge {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 6px;
-    }
-    .badge-run { background: rgba(200,255,0,0.1); color: var(--accent); }
-    .badge-intervals { background: rgba(100,180,255,0.1); color: #60a5fa; }
-    .badge-circuit { background: rgba(167,139,250,0.1); color: #a78bfa; }
-    .badge-technique { background: rgba(250,204,21,0.1); color: #facc15; }
-
-    .trend-up { color: var(--accent); font-size: 12px; }
-    .trend-down { color: #ff6b6b; font-size: 12px; }
-
-    /* ── TOAST ── */
-    #toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      padding: 12px 18px;
-      background: rgba(30,30,30,0.95);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-sm);
+    /* ── STATES ── */
+    .empty-state {
+      text-align: center;
+      color: var(--text-muted);
       font-size: 13px;
-      z-index: 9999;
-      opacity: 0;
-      transform: translateY(8px);
-      transition: opacity 0.2s, transform 0.2s;
-      pointer-events: none;
-      backdrop-filter: blur(12px);
-    }
-    #toast.show { opacity: 1; transform: none; }
-    #toast.err { border-color: rgba(255,107,107,0.4); color: #ff6b6b; }
-
-    /* ── LOADING INDICATOR ── */
-    .dots {
-      display: inline-flex;
-      gap: 4px;
-      align-items: center;
-    }
-    .dots span {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: var(--muted);
-      animation: pulse 1.2s infinite;
-    }
-    .dots span:nth-child(2) { animation-delay: 0.2s; }
-    .dots span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes pulse {
-      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-      40% { opacity: 1; transform: scale(1); }
+      padding: 28px 0;
     }
 
-    /* ── ADVANCED STATS ── */
-    .advanced-stats-toggle {
-      cursor: pointer;
-      color: var(--muted);
+    .loading {
+      text-align: center;
+      color: var(--text-muted);
       font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 12px 0;
-      display: flex;
-      justify-content: space-between;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      margin-top: 8px;
-      transition: color 0.2s;
-    }
-    .advanced-stats-toggle:hover { color: var(--accent); }
-
-    .estimates-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px 0;
-    }
-
-    .estimate-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 14px;
-    }
-
-    .estimate-dist { color: var(--muted); }
-
-    .estimate-time {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .estimates-note {
-      font-size: 11px;
-      color: rgba(255,255,255,0.25);
-      margin-top: 4px;
-      line-height: 1.5;
-    }
-
-    /* ── BOTTOM NAV ── */
-    .bottom-nav {
-      display: none;
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: 64px;
-      background: rgba(10,10,10,0.95);
-      backdrop-filter: blur(12px);
-      border-top: 1px solid var(--card-border);
-      z-index: 100;
-      justify-content: space-around;
-      align-items: center;
-    }
-
-    .bottom-nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      cursor: pointer;
-      padding: 8px 16px;
-      transition: color 0.2s;
-    }
-    .bottom-nav-item.active { color: var(--accent); }
-    .bottom-nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-
-    /* ── COMPLETE BUTTON on session cards ── */
-    .btn-complete {
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(200,255,0,0.3);
-      background: rgba(200,255,0,0.06);
-      color: var(--accent);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .btn-complete:hover { background: rgba(200,255,0,0.14); }
-
-    @media (max-width: 768px) {
-      .bottom-nav { display: flex; }
-      .header-nav { display: none; }
-      body { padding-bottom: 64px; }
-    }
-
-    @media (max-width: 600px) {
-      .app-header { padding: 12px 16px; }
-      .header-logo { font-size: 11px; }
-      .app-content { padding: 16px; }
-      .stats-grid { grid-template-columns: 1fr 1fr; }
-      .result-grid { grid-template-columns: repeat(2, 1fr); }
-      .history-table th:nth-child(n+4),
-      .history-table td:nth-child(n+4) { display: none; }
+      letter-spacing: 0.04em;
+      padding: 32px 0;
     }
   </style>
 </head>
 <body>
 
-<!-- PROFILE SCREEN -->
-<div id="screen-profile" class="active">
-  <div>
-    <div class="profile-logo">Running <span>Intelligence</span></div>
-    <div class="profile-sub">SELECT ATHLETE</div>
+<!-- USER SELECT SCREEN -->
+<div id="screen-select">
+  <div class="app-logo">RUNNING<br><span>INTELLIGENCE</span></div>
+  <div class="user-cards" id="user-cards-list">
+    <div class="loading">Loading...</div>
   </div>
-  <div class="profile-cards" id="profile-cards"></div>
 </div>
 
-<!-- APP SCREEN -->
-<div id="screen-app">
-  <header class="app-header">
-    <div class="header-logo">Running <span>Intelligence</span></div>
-    <nav class="header-nav">
-      <button class="nav-tab active" onclick="switchTab('home')">Home</button>
-      <button class="nav-tab" onclick="switchTab('history')">History</button>
-      <button class="nav-tab" onclick="switchTab('cooper')">Cooper</button>
-    </nav>
-    <div class="header-user">
-      <span class="header-user-name" id="header-user-name"></span>
-      <button class="btn-switch" onclick="switchUser()">Switch</button>
-    </div>
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- Desktop header -->
+  <header id="desktop-header">
+    <div class="header-logo">RUNNING <span>INTELLIGENCE</span></div>
+    <select id="desktop-user-select" onchange="switchUser(this.value)"></select>
   </header>
 
-  <div class="app-content">
+  <main>
 
-    <!-- HOME TAB -->
-    <div id="tab-home" class="tab-panel active">
-      <div class="home-grid">
+    <!-- HOME -->
+    <div id="tab-home" class="tab-content active">
 
-        <!-- LEFT: CHAT -->
-        <div class="card">
-          <div class="card-title">AI Coach</div>
-          <div class="chat-wrap">
-            <div class="chat-messages" id="chat-messages">
-              <div class="chat-empty" id="chat-empty">
-                <div class="chat-empty-title">Ask your coach</div>
-                <div>Describe your goals, ask for a training plan,<br>or request workout suggestions.</div>
-              </div>
-            </div>
-            <div id="tracking-section" style="display:none;">
-              <div class="card-title" style="margin-bottom:10px;">Session Tracking</div>
-              <div class="tracking-form" id="tracking-form"></div>
-              <button class="btn-save-results" onclick="saveResults()">Save Results</button>
-            </div>
-            <div class="chat-input-row" id="chat-input-row">
-              <textarea
-                class="chat-input"
-                id="chat-input"
-                placeholder="Ask your coach..."
-                rows="1"
-                onkeydown="chatKeydown(event)"
-                oninput="autoResize(this)"
-              ></textarea>
-              <button class="btn-send" id="btn-send" onclick="sendChat()">Send</button>
-            </div>
-          </div>
+      <div class="home-user-card">
+        <div class="home-user-left">
+          <div class="user-name" id="home-username">—</div>
+          <button class="mobile-user-switch" onclick="showUserSelect()">Switch user</button>
         </div>
+        <div class="race-pill" id="home-race" onclick="showTab('goals')">Set race date</div>
+      </div>
 
-        <!-- RIGHT: DASHBOARD -->
-        <div style="display:flex;flex-direction:column;gap:16px;">
-
-          <!-- Stats grid -->
-          <div class="card">
-            <div class="card-title">Stats</div>
-            <div class="stats-grid" id="stats-grid">
-              <div class="stat-card">
-                <div class="stat-label">Total KM</div>
-                <div class="stat-value" id="stat-total-km">-</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Streak</div>
-                <div class="stat-value accent" id="stat-streak">-</div>
-                <div class="stat-sub">days</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Best Pace</div>
-                <div class="stat-value" id="stat-best-pace">-</div>
-                <div class="stat-sub">min/km</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Avg Pace (Last 5)</div>
-                <div class="stat-value" id="stat-avg-pace5">-</div>
-                <div class="stat-sub">min/km</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">This Week</div>
-                <div class="stat-value" id="stat-week-km">-</div>
-                <div class="stat-sub" id="stat-week-sub">km</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Last Session</div>
-                <div class="stat-value" id="stat-last-session">-</div>
-                <div class="stat-sub" id="stat-last-sub">days ago</div>
-              </div>
-            </div>
-
-            <!-- Calories + total time -->
-            <div class="stats-grid" style="margin-top:10px;">
-              <div class="stat-card">
-                <div class="stat-label">Estimated Calories</div>
-                <div class="stat-value" id="stat-calories">0</div>
-                <div class="stat-sub">kcal</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Total Time</div>
-                <div class="stat-value" id="stat-total-time">0</div>
-                <div class="stat-sub">horas</div>
-              </div>
-            </div>
-
-            <!-- Collapsible estimates -->
-            <div class="advanced-stats-toggle" onclick="toggleAdvancedStats()">
-              View Estimated Performance
-              <span id="toggle-arrow">+</span>
-            </div>
-            <div class="advanced-stats" id="advanced-stats" style="display:none;">
-              <div id="estimates-content"></div>
-            </div>
-          </div>
-
-          <!-- Race countdown -->
-          <div class="card" id="race-card">
-            <div class="card-title">Race Countdown</div>
-            <div id="race-display" style="display:none;">
-              <div class="race-days" id="race-days">-</div>
-              <div class="race-label">days to race</div>
-              <div class="progress-bar">
-                <div class="progress-fill" id="race-progress-fill" style="width:0%"></div>
-              </div>
-              <div class="progress-label" id="race-progress-label"></div>
-            </div>
-            <div class="race-date-row">
-              <input type="date" class="input-date" id="race-date-input" />
-              <button class="btn-sm" onclick="saveRaceDate()">Set Date</button>
-            </div>
-          </div>
-
-          <!-- Recent AI sessions -->
-          <div class="card">
-            <div class="card-title">Recent Training Sessions</div>
-            <div class="session-cards" id="recent-sessions">
-              <div class="empty-state">No AI sessions yet. Ask your coach for a plan.</div>
-            </div>
-          </div>
-
+      <div class="stats-grid">
+        <div class="stat-tile">
+          <div class="stat-label">Total KM</div>
+          <div class="stat-value" id="stat-total-km">0</div>
         </div>
+        <div class="stat-tile">
+          <div class="stat-label">Streak</div>
+          <div class="stat-value" id="stat-streak">0</div>
+          <div class="stat-sub">days</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Best Pace</div>
+          <div class="stat-value" id="stat-best-pace">—</div>
+          <div class="stat-sub">min/km</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">This Week</div>
+          <div class="stat-value" id="stat-week">0</div>
+          <div class="stat-sub">km</div>
+        </div>
+      </div>
+
+      <div class="perf-card">
+        <div class="perf-header" onclick="togglePerf()">
+          <span>Estimated Performance</span>
+          <span class="perf-arrow" id="perf-arrow">+</span>
+        </div>
+        <div class="perf-body" id="perf-body" style="display:none">
+          <div class="perf-row"><span class="perf-dist">100 m</span><span class="perf-time" id="perf-100m">—</span></div>
+          <div class="perf-row"><span class="perf-dist">400 m</span><span class="perf-time" id="perf-400m">—</span></div>
+          <div class="perf-row"><span class="perf-dist">1 km</span><span class="perf-time" id="perf-1km">—</span></div>
+          <div class="perf-row"><span class="perf-dist">5 km</span><span class="perf-time" id="perf-5km">—</span></div>
+          <div class="perf-row"><span class="perf-dist">10 km</span><span class="perf-time" id="perf-10km">—</span></div>
+        </div>
+      </div>
+
+      <div class="section-title">Recent Sessions</div>
+      <div class="list-card" id="recent-list"><div class="loading">Loading...</div></div>
+
+    </div>
+
+    <!-- ACTIVITY -->
+    <div id="tab-activity" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-title">Weekly Distance</div>
+        <canvas id="chart-weekly" height="160"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Pace Trend</div>
+        <canvas id="chart-pace" height="160"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Session Types</div>
+        <canvas id="chart-types" height="160"></canvas>
       </div>
     </div>
 
-    <!-- HISTORY TAB -->
-    <div id="tab-history" class="tab-panel">
-      <div class="history-wrap">
-        <div class="card">
-          <div class="card-title">Session History</div>
-          <div id="history-body">
-            <div class="empty-state">No sessions logged yet.</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- COOPER -->
+    <div id="tab-cooper" class="tab-content">
 
-    <!-- COOPER TAB -->
-    <div id="tab-cooper" class="tab-panel">
-      <div class="cooper-wrap">
-        <div class="card">
-          <div class="card-title">Cooper Test</div>
-          <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
-            Run as far as possible in 12 minutes. Enter the distance to calculate your VO2max and projected 10K time.
-          </div>
-          <div style="display:flex;flex-direction:column;gap:16px;">
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Date</label>
-                <input type="date" class="form-input" id="cooper-date" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Distance (meters)</label>
-                <input type="number" class="form-input" id="cooper-dist" placeholder="2800" min="500" max="6000" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Notes</label>
-              <input type="text" class="form-input" id="cooper-notes" placeholder="Conditions, how you felt..." />
-            </div>
-            <button class="btn-primary" onclick="submitCooper()">Calculate</button>
-          </div>
+      <div class="cooper-form-card">
+        <div class="section-title" style="margin-top:0">New Test</div>
+        <div class="field-group">
+          <label>Date</label>
+          <input type="date" id="cooper-date">
         </div>
+        <div class="field-group">
+          <label>Distance in 12 min (meters)</label>
+          <input type="number" id="cooper-dist" placeholder="2400" min="0" step="10">
+        </div>
+        <div class="field-group">
+          <label>Notes</label>
+          <textarea id="cooper-notes" rows="2" placeholder="Optional..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="submitCooper()">Calculate</button>
 
         <div class="cooper-result" id="cooper-result">
-          <div class="card-title">Result</div>
-          <div class="fitness-bar" id="fitness-bar">
-            <div class="fitness-seg" data-level="0"></div>
-            <div class="fitness-seg" data-level="1"></div>
-            <div class="fitness-seg" data-level="2"></div>
-            <div class="fitness-seg" data-level="3"></div>
-            <div class="fitness-seg" data-level="4"></div>
-            <div class="fitness-seg" data-level="5"></div>
-          </div>
-          <div class="result-grid">
-            <div class="result-item">
-              <div class="result-value" id="res-dist">-</div>
-              <div class="result-label">meters</div>
+          <div class="cooper-result-grid">
+            <div class="cooper-stat">
+              <div class="cooper-stat-label">VO2 Max</div>
+              <div class="cooper-stat-value" id="res-vo2">—</div>
             </div>
-            <div class="result-item">
-              <div class="result-value accent" id="res-vo2">-</div>
-              <div class="result-label">VO2max</div>
+            <div class="cooper-stat">
+              <div class="cooper-stat-label">Level</div>
+              <div class="cooper-stat-value" id="res-level" style="font-size:14px">—</div>
             </div>
-            <div class="result-item">
-              <div class="result-value" id="res-10k">-</div>
-              <div class="result-label">10K proj</div>
+            <div class="cooper-stat">
+              <div class="cooper-stat-label">Proj. 10k</div>
+              <div class="cooper-stat-value" id="res-10k">—</div>
             </div>
-            <div class="result-item">
-              <div class="result-value" id="res-level">-</div>
-              <div class="result-label">level</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Cooper History</div>
-          <div id="cooper-history-body">
-            <div class="empty-state">No tests recorded yet.</div>
           </div>
         </div>
       </div>
+
+      <div class="section-title">History</div>
+      <div class="list-card" id="cooper-history"><div class="loading">Loading...</div></div>
+
     </div>
 
+    <!-- GOALS -->
+    <div id="tab-goals" class="tab-content">
+
+      <div class="goal-card">
+        <div class="goal-label">Target Race</div>
+        <div class="goal-input-row">
+          <input type="date" id="goal-race-date">
+          <button class="btn-secondary" onclick="saveRaceDate()">Set</button>
+        </div>
+        <div class="days-remaining" id="days-remaining">—</div>
+        <div class="days-remaining-sub" id="days-remaining-sub"></div>
+      </div>
+
+      <div class="goal-card">
+        <div class="goal-label">Performance Estimates</div>
+        <table class="targets-table">
+          <thead>
+            <tr><th>Distance</th><th>Estimated</th></tr>
+          </thead>
+          <tbody id="perf-targets-body">
+            <tr><td colspan="2" style="text-align:center;color:var(--text-muted);font-size:12px;padding:16px 0">No profile data</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="goal-card">
+        <div class="goal-label">Weekly KM Goal</div>
+        <div class="goal-input-row">
+          <input type="number" id="weekly-goal" placeholder="20" min="0" step="1">
+          <button class="btn-secondary" onclick="saveWeeklyGoal()">Set</button>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="weekly-progress" style="width:0%"></div></div>
+        <div class="goal-sub" id="weekly-status">0 / — km this week</div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-home" onclick="showTab('home')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="nav-item" id="nav-activity" onclick="showTab('activity')">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Activity
+    </button>
+    <button class="nav-add" onclick="openModal()">+</button>
+    <button class="nav-item" id="nav-cooper" onclick="showTab('cooper')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Cooper
+    </button>
+    <button class="nav-item" id="nav-goals" onclick="showTab('goals')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      Goals
+    </button>
+  </nav>
+
+</div>
+
+<!-- ADD SESSION MODAL -->
+<div class="modal-overlay" id="modal-add" style="display:none" onclick="overlayClose(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Add Session</span>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+
+    <div class="type-selector">
+      <button class="type-btn active" data-type="run" onclick="selectType(this)">Run</button>
+      <button class="type-btn" data-type="intervals" onclick="selectType(this)">Intervals</button>
+      <button class="type-btn" data-type="circuit" onclick="selectType(this)">Circuit</button>
+      <button class="type-btn" data-type="technique" onclick="selectType(this)">Technique</button>
+    </div>
+
+    <div class="field-group">
+      <label>Date</label>
+      <input type="date" id="add-date">
+    </div>
+
+    <div class="field-group" id="field-distance">
+      <label>Distance (km)</label>
+      <input type="number" id="add-distance" placeholder="0.0" step="0.1" min="0">
+    </div>
+
+    <div class="field-group">
+      <label>Time</label>
+      <div class="time-row">
+        <input type="number" id="add-hours" placeholder="00" min="0" max="23">
+        <span>h</span>
+        <input type="number" id="add-mins" placeholder="00" min="0" max="59">
+        <span>m</span>
+        <input type="number" id="add-secs" placeholder="00" min="0" max="59">
+        <span>s</span>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Effort <span id="effort-val">5</span>/10</label>
+      <input type="range" id="add-effort" min="1" max="10" value="5"
+             oninput="document.getElementById('effort-val').textContent=this.value">
+    </div>
+
+    <div class="field-group">
+      <label>Notes</label>
+      <textarea id="add-notes" placeholder="Optional..." rows="2"></textarea>
+    </div>
+
+    <button class="btn-primary" onclick="saveSession()">Save Session</button>
   </div>
 </div>
 
-<div id="toast"></div>
-
-<nav class="bottom-nav" id="bottom-nav">
-  <button class="bottom-nav-item active" id="nav-home" onclick="switchTab('home')">
-    <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
-    <span>Home</span>
-  </button>
-<button class="bottom-nav-item" id="nav-history" onclick="switchTab('history')">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="9"/><line x1="15" y1="4" x2="15" y2="9"/><line x1="7" y1="14" x2="17" y2="14"/><line x1="7" y1="18" x2="13" y2="18"/></svg>
-    <span>History</span>
-  </button>
-  <button class="bottom-nav-item" id="nav-cooper" onclick="switchTab('cooper')">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-    <span>Cooper</span>
-  </button>
-</nav>
-
 <script>
-  // ── STATE ────────────────────────────────
-  let currentUser = null;
-  let currentRunType = 'run';
-  let pendingSessionId = null;
-  let pendingPlan = null;
+// ─── STATE ───────────────────────────────────────────────────
+let currentUser = null;
+let allUsers = [];
+let runs = [];
+let stats = {};
+let cooperTests = [];
+let charts = {};
 
-  // ── INIT ─────────────────────────────────
-  window.addEventListener('DOMContentLoaded', () => {
-    loadProfiles();
-    document.getElementById('run-date').value = today();
-    document.getElementById('cooper-date').value = today();
+// ─── INIT ────────────────────────────────────────────────────
+async function init() {
+  try {
+    const res = await fetch('/api/users');
+    allUsers = await res.json();
+    renderUserSelectScreen();
+  } catch(e) {
+    document.getElementById('user-cards-list').innerHTML = '<div class="empty-state">Failed to load</div>';
+  }
+}
+
+function renderUserSelectScreen() {
+  const list = document.getElementById('user-cards-list');
+  if (!allUsers.length) {
+    list.innerHTML = '<div class="empty-state">No users found</div>';
+    return;
+  }
+  list.innerHTML = allUsers.map(u =>
+    `<button class="user-card-btn" onclick="selectUser(${u.id})">${u.name}</button>`
+  ).join('');
+}
+
+async function selectUser(id) {
+  currentUser = allUsers.find(u => u.id === id);
+  document.getElementById('screen-select').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+
+  const sel = document.getElementById('desktop-user-select');
+  sel.innerHTML = allUsers.map(u =>
+    `<option value="${u.id}" ${u.id === id ? 'selected' : ''}>${u.name}</option>`
+  ).join('');
+
+  await loadDashboard();
+}
+
+function switchUser(id) {
+  currentUser = allUsers.find(u => u.id === parseInt(id));
+  loadDashboard();
+}
+
+function showUserSelect() {
+  document.getElementById('screen-select').style.display = 'flex';
+}
+
+// ─── LOAD DATA ───────────────────────────────────────────────
+async function loadDashboard() {
+  const [sRes, rRes, cRes] = await Promise.all([
+    fetch(`/api/stats/${currentUser.id}`),
+    fetch(`/api/runs/${currentUser.id}`),
+    fetch(`/api/cooper/${currentUser.id}`)
+  ]);
+  stats = await sRes.json();
+  runs = await rRes.json();
+  cooperTests = await cRes.json();
+
+  renderHome();
+  renderGoals();
+  renderCooperHistory();
+
+  if (document.getElementById('tab-activity').classList.contains('active')) {
+    renderCharts();
+  }
+}
+
+// ─── HOME ─────────────────────────────────────────────────────
+function renderHome() {
+  document.getElementById('home-username').textContent = currentUser.name;
+
+  const pill = document.getElementById('home-race');
+  if (stats.days_to_race != null) {
+    const d = stats.days_to_race;
+    pill.textContent = d > 0 ? `${d}d to race` : d === 0 ? 'Race day' : 'Race passed';
+  } else {
+    pill.textContent = 'Set race date';
+  }
+
+  document.getElementById('stat-total-km').textContent = stats.total_km ?? '0';
+  document.getElementById('stat-streak').textContent = stats.streak ?? '0';
+  document.getElementById('stat-best-pace').textContent = stats.best_pace || '—';
+  document.getElementById('stat-week').textContent = stats.week_km ?? '0';
+
+  const est = stats.estimates || {};
+  document.getElementById('perf-100m').textContent = fmtTime(est['100m']);
+  document.getElementById('perf-400m').textContent = fmtTime(est['400m']);
+  document.getElementById('perf-1km').textContent  = fmtTime(est['1km']);
+  document.getElementById('perf-5km').textContent  = fmtTime(est['5km']);
+  document.getElementById('perf-10km').textContent = fmtTime(est['10km']);
+
+  const recent = runs.slice(0, 5);
+  const el = document.getElementById('recent-list');
+  if (!recent.length) {
+    el.innerHTML = '<div class="empty-state">No sessions yet</div>';
+    return;
+  }
+  el.innerHTML = recent.map(r => {
+    const dist = r.distance > 0 ? `${r.distance.toFixed(1)} km` : '—';
+    const pace = r.pace && r.pace !== '-' ? `${r.pace} /km` : '';
+    return `
+      <div class="session-row">
+        <div class="session-info">
+          <div class="session-type">${r.type}</div>
+          <div class="session-date">${fmtDate(r.date)}</div>
+        </div>
+        <div class="session-right">
+          <div class="session-dist">${dist}</div>
+          ${pace ? `<div class="session-pace">${pace}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function togglePerf() {
+  const body = document.getElementById('perf-body');
+  const arrow = document.getElementById('perf-arrow');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.classList.toggle('open', !isOpen);
+}
+
+// ─── ACTIVITY CHARTS ──────────────────────────────────────────
+const CHART_DEFAULTS = {
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } } },
+    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } } }
+  }
+};
+
+function renderCharts() {
+  Object.values(charts).forEach(c => c && c.destroy());
+  charts = {};
+  renderWeeklyChart();
+  renderPaceChart();
+  renderTypesChart();
+}
+
+function renderWeeklyChart() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const dow = (today.getDay() + 6) % 7; // Monday=0
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - dow);
+
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) {
+    const start = new Date(monday);
+    start.setDate(monday.getDate() - i * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    weeks.push({ start, end, km: 0, label: fmtShortDate(start) });
+  }
+
+  runs.forEach(r => {
+    const d = new Date(r.date + 'T00:00:00');
+    for (const w of weeks) {
+      if (d >= w.start && d < w.end) { w.km += r.distance; break; }
+    }
   });
 
-  function today() {
-    return new Date().toISOString().slice(0, 10);
-  }
+  const ctx = document.getElementById('chart-weekly').getContext('2d');
+  charts.weekly = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: weeks.map(w => w.label),
+      datasets: [{
+        data: weeks.map(w => Math.round(w.km * 10) / 10),
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderColor: 'rgba(255,255,255,0.35)',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: { ...CHART_DEFAULTS }
+  });
+}
 
-  // ── PROFILES ─────────────────────────────
-  async function loadProfiles() {
-    const res = await fetch('/api/users');
-    const users = await res.json();
-    const container = document.getElementById('profile-cards');
-    container.innerHTML = '';
-    users.forEach(u => {
-      const initials = u.name.slice(0, 2).toUpperCase();
-      const card = document.createElement('div');
-      card.className = 'profile-card';
-      card.innerHTML = `
-        <div class="profile-avatar">${initials}</div>
-        <div class="profile-card-name">${u.name}</div>
-        <div class="profile-card-sub">RUNNER</div>
-      `;
-      card.onclick = () => selectUser(u.id, u.name);
-      container.appendChild(card);
-    });
-  }
+function renderPaceChart() {
+  const data = runs
+    .filter(r => r.type === 'run' && r.time_seconds > 0 && r.distance > 0)
+    .slice(0, 20)
+    .reverse();
 
-  function selectUser(id, name) {
-    currentUser = { id, name };
-    document.getElementById('header-user-name').textContent = name;
-    document.getElementById('screen-profile').classList.remove('active');
-    document.getElementById('screen-app').classList.add('active');
-    loadDashboard();
-    initChat(id);
-  }
+  const paceVals = data.map(r => Math.round((r.time_seconds / r.distance / 60) * 100) / 100);
+  const labels = data.map(r => fmtShortDate(new Date(r.date + 'T00:00:00')));
 
-  function switchUser() {
-    currentUser = null;
-    document.getElementById('chat-messages').innerHTML = `
-      <div class="chat-empty" id="chat-empty">
-        <div class="chat-empty-title">Ask your coach</div>
-        <div>Describe your goals, ask for a training plan,<br>or request workout suggestions.</div>
-      </div>`;
-    document.getElementById('screen-app').classList.remove('active');
-    document.getElementById('screen-profile').classList.add('active');
-  }
-
-  // ── TABS ─────────────────────────────────
-  function switchTab(name) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-    const tabs = ['home', 'history', 'cooper'];
-    const idx = tabs.indexOf(name);
-    document.querySelectorAll('.nav-tab')[idx].classList.add('active');
-
-    // Sync bottom nav
-    document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
-    const navBtn = document.getElementById('nav-' + name);
-    if (navBtn) navBtn.classList.add('active');
-
-    if (name === 'home' && currentUser) initChat(currentUser.id);
-    if (name === 'history') loadHistory();
-    if (name === 'cooper') loadCooper();
-  }
-
-  // ── CHAT INIT (onboarding-aware) ─────────
-  async function initChat(userId) {
-    if (!userId) return;
-    const [statsRes, historyRes] = await Promise.all([
-      fetch(`/api/stats/${userId}`),
-      fetch(`/api/chat-history/${userId}`),
-    ]);
-    const stats = await statsRes.json();
-    const messages = await historyRes.json();
-
-    const container = document.getElementById('chat-messages');
-    container.innerHTML = '';
-
-    if (messages.length > 0) {
-      messages.forEach(msg => appendMessage(msg.role === 'assistant' ? 'ai' : 'user', msg.content));
-      return;
-    }
-
-    // No history: show onboarding or empty prompt
-    const hasProfile = stats.profile_data && Object.keys(stats.profile_data).length > 0;
-    if (!hasProfile) {
-      container.innerHTML = '';
-      appendMessage('ai', 'Hola. Antes de generar tu primer plan necesito conocerte un poco. Cuantos anos tienes?');
-    } else {
-      container.innerHTML = `
-        <div class="chat-empty" id="chat-empty">
-          <div class="chat-empty-title">Welcome back</div>
-          <div>Tell your coach what you want to train today<br>or ask anything you need.</div>
-        </div>`;
-    }
-  }
-
-  // ── FORMAT SECONDS ────────────────────────
-  function formatSeconds(totalSecs) {
-    if (!totalSecs && totalSecs !== 0) return '--';
-    const m = Math.floor(totalSecs / 60);
-    const s = totalSecs % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-
-  // ── DASHBOARD ────────────────────────────
-  async function loadDashboard() {
-    if (!currentUser) return;
-    const res = await fetch(`/api/user/${currentUser.id}/stats`);
-    const s = await res.json();
-    renderStats(s);
-    if (s.calories_burned !== undefined) {
-      renderAdvancedStats(s);
-    }
-  }
-
-  function renderStats(s) {
-    document.getElementById('stat-total-km').textContent = s.total_km ?? '-';
-    document.getElementById('stat-streak').textContent = s.streak ?? 0;
-    document.getElementById('stat-best-pace').textContent = s.best_pace ?? '-';
-    document.getElementById('stat-avg-pace5').textContent = s.avg_pace_last5 ?? '-';
-    document.getElementById('stat-week-km').textContent = s.week_km ?? 0;
-
-    const prevSub = s.prev_week_km != null
-      ? `vs ${s.prev_week_km} km last week`
-      : 'km this week';
-    document.getElementById('stat-week-sub').textContent = prevSub;
-
-    if (s.last_session_days != null) {
-      document.getElementById('stat-last-session').textContent = s.last_session_days;
-      const sub = document.getElementById('stat-last-sub');
-      sub.textContent = 'days ago';
-      sub.className = 'stat-sub' + (s.last_session_alert ? ' alert' : '');
-    }
-
-    renderAdvancedStats(s);
-
-    // Race
-    const raceDisplay = document.getElementById('race-display');
-    if (s.days_to_race != null) {
-      raceDisplay.style.display = 'block';
-      document.getElementById('race-days').textContent = s.days_to_race;
-      if (s.race_progress != null) {
-        document.getElementById('race-progress-fill').style.width = s.race_progress + '%';
-        document.getElementById('race-progress-label').textContent =
-          `Fitness readiness ${s.race_progress}% (VO2max target: 52)`;
+  const ctx = document.getElementById('chart-pace').getContext('2d');
+  charts.pace = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: paceVals,
+        borderColor: 'rgba(255,255,255,0.55)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1.5,
+        pointRadius: 3,
+        pointBackgroundColor: 'rgba(255,255,255,0.55)',
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      ...CHART_DEFAULTS,
+      scales: {
+        ...CHART_DEFAULTS.scales,
+        y: { ...CHART_DEFAULTS.scales.y, reverse: true }
       }
-      if (s.completed_pct != null) {
-        document.getElementById('race-progress-label').textContent +=
-          ` — ${s.completed_pct}% sessions completed`;
-      }
-    } else {
-      raceDisplay.style.display = 'none';
     }
-    if (s.race_date) {
-      document.getElementById('race-date-input').value = s.race_date;
-    }
+  });
+}
 
-    // Recent sessions
-    const container = document.getElementById('recent-sessions');
-    if (s.recent_sessions && s.recent_sessions.length > 0) {
-      container.innerHTML = s.recent_sessions.map(sess => `
-        <div class="session-card">
-          <div class="session-date">${sess.created_at}</div>
-          <div class="session-detail">${sess.exercise_count} exercise${sess.exercise_count !== 1 ? 's' : ''}</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="session-status ${sess.status}">${sess.status.replace('_', ' ')}</div>
-            ${sess.status === 'pending' ? `<button class="btn-complete" onclick="openPendingSession(${sess.id})">Complete</button>` : ''}
-          </div>
-        </div>
-      `).join('');
-    } else {
-      container.innerHTML = '<div class="empty-state">No AI sessions yet. Ask your coach for a plan.</div>';
-    }
-  }
+function renderTypesChart() {
+  const counts = {};
+  runs.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
 
-  function toggleAdvancedStats() {
-    const panel = document.getElementById('advanced-stats');
-    const arrow = document.getElementById('toggle-arrow');
-    const visible = panel.style.display !== 'none';
-    panel.style.display = visible ? 'none' : 'block';
-    arrow.textContent = visible ? '+' : '-';
-  }
+  const labels = Object.keys(counts);
+  const data = Object.values(counts);
+  const colors = ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0.12)'];
 
-  function renderAdvancedStats(stats) {
-    document.getElementById('stat-calories').textContent = stats.calories_burned ?? 0;
-    const hours = stats.total_time_seconds
-      ? (stats.total_time_seconds / 3600).toFixed(1)
-      : '0';
-    document.getElementById('stat-total-time').textContent = hours;
-
-    const est = stats.estimates || {};
-    const hasAny = Object.values(est).some(v => v != null);
-    const content = document.getElementById('estimates-content');
-
-    if (!hasAny) {
-      content.innerHTML = `
-        <p class="estimates-note" style="padding-top:8px;">
-          Completa tu perfil con el coach para ver tus estimados de rendimiento.
-        </p>`;
-      return;
-    }
-
-    const rows = [
-      { key: '100m',  label: '100m' },
-      { key: '400m',  label: '400m' },
-      { key: '1km',   label: '1 km' },
-      { key: '5km',   label: '5 km' },
-      { key: '10km',  label: '10 km' },
-    ];
-
-    content.innerHTML = `
-      <div class="estimates-grid">
-        ${rows.map(r => `
-          <div class="estimate-row">
-            <span class="estimate-dist">${r.label}</span>
-            <span class="estimate-time">${est[r.key] ? formatSeconds(est[r.key]) : '--'}</span>
-          </div>
-        `).join('')}
-      </div>
-      <p class="estimates-note">Tiempos calculados segun tu perfil. Se actualizan con tu progreso.</p>
-    `;
-  }
-
-  async function openPendingSession(sessionId) {
-    const res = await fetch(`/api/training-session/${sessionId}/results`);
-    const data = await res.json();
-    if (!data.plan || data.plan.length === 0) { toast('Sesion sin plan', true); return; }
-
-    pendingSessionId = sessionId;
-    pendingPlan = data.plan;
-
-    switchTab('home');
-    document.getElementById('chat-input-row').style.display = 'none';
-    document.getElementById('tracking-section').style.display = 'block';
-
-    // Pre-fill any existing partial results
-    renderTrackingForm(data.plan);
-    data.results.forEach(r => {
-      const minEl = document.getElementById(`track-min-${r.exercise_index}`);
-      const secEl = document.getElementById(`track-sec-${r.exercise_index}`);
-      if (minEl && r.time_seconds != null) {
-        minEl.value = Math.floor(r.time_seconds / 60);
-        secEl.value = r.time_seconds % 60;
-      }
-    });
-
-    document.getElementById('tracking-section').scrollIntoView({ behavior: 'smooth' });
-  }
-
-  // ── RACE DATE ────────────────────────────
-  async function saveRaceDate() {
-    const val = document.getElementById('race-date-input').value;
-    if (!val) return;
-    await fetch(`/api/race_date/${currentUser.id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ race_date: val }),
-    });
-    toast('Race date saved');
-    loadDashboard();
-  }
-
-  // ── CHAT ─────────────────────────────────
-  async function sendChat() {
-    const input = document.getElementById('chat-input');
-    const msg = input.value.trim();
-    if (!msg || !currentUser) return;
-
-    input.value = '';
-    autoResize(input);
-    document.getElementById('btn-send').disabled = true;
-
-    appendMessage('user', msg);
-
-    const loadingEl = appendLoading();
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUser.id, message: msg }),
-      });
-      const data = await res.json();
-      loadingEl.remove();
-
-      if (data.error) {
-        appendMessage('ai', 'Error: ' + data.error);
-      } else {
-        appendMessage('ai', data.text, data.plan, data.session_id);
-        if (data.plan && data.session_id) {
-          pendingSessionId = data.session_id;
-          pendingPlan = data.plan;
-        }
-        if (data.run_saved) {
-          loadDashboard();
-          toast('Session saved to your history');
+  const ctx = document.getElementById('chart-types').getContext('2d');
+  charts.types = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors.slice(0, labels.length),
+        borderColor: 'transparent',
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { color: 'rgba(255,255,255,0.4)', font: { size: 10 }, padding: 14 }
         }
       }
-    } catch (e) {
-      loadingEl.remove();
-      appendMessage('ai', 'Connection error. Try again.');
     }
+  });
+}
 
-    document.getElementById('btn-send').disabled = false;
+// ─── COOPER ───────────────────────────────────────────────────
+async function submitCooper() {
+  const date = document.getElementById('cooper-date').value;
+  const dist = document.getElementById('cooper-dist').value;
+  if (!date || !dist) { alert('Date and distance required'); return; }
+
+  const res = await fetch('/api/cooper', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: currentUser.id,
+      date,
+      distance_m: parseFloat(dist),
+      notes: document.getElementById('cooper-notes').value
+    })
+  });
+  const data = await res.json();
+  if (data.error) { alert(data.error); return; }
+
+  document.getElementById('res-vo2').textContent = data.vo2max;
+  document.getElementById('res-level').textContent = data.fitness_level;
+  document.getElementById('res-10k').textContent = data.proj_10k;
+  document.getElementById('cooper-result').classList.add('visible');
+
+  cooperTests = await fetch(`/api/cooper/${currentUser.id}`).then(r => r.json());
+  renderCooperHistory();
+
+  document.getElementById('cooper-dist').value = '';
+  document.getElementById('cooper-notes').value = '';
+}
+
+function renderCooperHistory() {
+  const el = document.getElementById('cooper-history');
+  if (!cooperTests.length) {
+    el.innerHTML = '<div class="empty-state">No tests yet</div>';
+    return;
   }
-
-  function chatKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendChat();
-    }
-  }
-
-  function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }
-
-  function appendMessage(role, text, plan, sessionId) {
-    const container = document.getElementById('chat-messages');
-    const empty = document.getElementById('chat-empty');
-    if (empty) empty.style.display = 'none';
-
-    const wrapper = document.createElement('div');
-    wrapper.className = `msg ${role}`;
-
-    const label = document.createElement('div');
-    label.className = 'msg-label';
-    label.textContent = role === 'user' ? 'You' : 'Coach';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.textContent = text;
-    wrapper.appendChild(label);
-    wrapper.appendChild(bubble);
-
-    if (plan && plan.length > 0 && sessionId) {
-      const planBox = document.createElement('div');
-      planBox.className = 'chat-plan-box';
-      planBox.innerHTML = `
-        <div class="chat-plan-box-title">Training Plan</div>
-        <div class="plan-items">
-          ${plan.map(p => `<div class="plan-item">${p.label}</div>`).join('')}
-        </div>
-        <button class="btn-confirm" onclick="confirmSession(${sessionId}, ${JSON.stringify(plan).replace(/"/g, '&quot;')})">Confirm Session</button>
-      `;
-      wrapper.appendChild(planBox);
-    }
-
-    container.appendChild(wrapper);
-    container.scrollTop = container.scrollHeight;
-    return wrapper;
-  }
-
-  function appendLoading() {
-    const container = document.getElementById('chat-messages');
-    const wrapper = document.createElement('div');
-    wrapper.className = 'msg ai';
-    wrapper.innerHTML = `
-      <div class="msg-label">Coach</div>
-      <div class="msg-bubble"><div class="dots"><span></span><span></span><span></span></div></div>
-    `;
-    container.appendChild(wrapper);
-    container.scrollTop = container.scrollHeight;
-    return wrapper;
-  }
-
-  function confirmSession(sessionId, plan) {
-    pendingSessionId = sessionId;
-    pendingPlan = plan;
-
-    document.getElementById('chat-input-row').style.display = 'none';
-    document.getElementById('tracking-section').style.display = 'block';
-
-    renderTrackingForm(plan);
-  }
-
-  function renderTrackingForm(plan) {
-    const form = document.getElementById('tracking-form');
-    form.innerHTML = plan.map((item, i) => `
-      <div class="tracking-item tracking-exercise" data-index="${i}">
-        <div style="flex:1;">
-          <div class="tracking-label exercise-label">${item.label}</div>
-          <div class="tracking-type-badge">${item.type}</div>
-        </div>
-        <div class="time-input-group">
-          <input
-            type="number"
-            class="time-min"
-            id="track-min-${i}"
-            placeholder="00"
-            min="0" max="99"
-          />
-          <span class="time-sep">min</span>
-          <input
-            type="number"
-            class="time-sec"
-            id="track-sec-${i}"
-            placeholder="00"
-            min="0" max="59"
-          />
-          <span class="time-sep">seg</span>
-        </div>
+  el.innerHTML = cooperTests.map(t => `
+    <div class="cooper-row">
+      <div class="cooper-info">
+        <div class="cooper-date">${fmtDate(t.date)}</div>
+        <div class="cooper-dist">${Math.round(t.distance_m)} m</div>
       </div>
-    `).join('');
+      <div class="cooper-right">
+        <div class="cooper-vo2">VO2 ${t.vo2max}</div>
+        <div class="cooper-level">${t.fitness_level} &middot; ${t.proj_10k}</div>
+      </div>
+      <button class="btn-danger" onclick="deleteCooper(${t.id})">Delete</button>
+    </div>`
+  ).join('');
+}
+
+async function deleteCooper(id) {
+  if (!confirm('Delete this test?')) return;
+  await fetch(`/api/cooper/${id}`, { method: 'DELETE' });
+  cooperTests = cooperTests.filter(t => t.id !== id);
+  renderCooperHistory();
+}
+
+// ─── GOALS ────────────────────────────────────────────────────
+function renderGoals() {
+  if (stats.race_date) {
+    document.getElementById('goal-race-date').value = stats.race_date;
+  }
+  if (stats.days_to_race != null) {
+    const d = stats.days_to_race;
+    document.getElementById('days-remaining').textContent = d >= 0 ? d : '—';
+    document.getElementById('days-remaining-sub').textContent =
+      d > 0 ? 'days remaining' : d === 0 ? 'Today' : 'Race passed';
   }
 
-  async function saveResults() {
-    if (!pendingSessionId || !pendingPlan) return;
+  const est = stats.estimates || {};
+  const dists = [['100m','100 m'],['400m','400 m'],['1km','1 km'],['5km','5 km'],['10km','10 km']];
+  const hasData = Object.values(est).some(Boolean);
+  const tbody = document.getElementById('perf-targets-body');
+  tbody.innerHTML = hasData
+    ? dists.map(([k,l]) => `<tr><td>${l}</td><td>${fmtTime(est[k])}</td></tr>`).join('')
+    : '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);font-size:12px;padding:16px 0">No profile data</td></tr>';
 
-    const exercises = document.querySelectorAll('.tracking-exercise');
-    const results = [];
-    exercises.forEach((ex, i) => {
-      const minInput = document.querySelector(`#track-min-${i}`);
-      const secInput = document.querySelector(`#track-sec-${i}`);
-      const mins = parseInt(minInput?.value) || 0;
-      const secs = parseInt(secInput?.value) || 0;
-      results.push({
-        exercise_index: i,
-        label: ex.querySelector('.exercise-label')?.textContent || `Ejercicio ${i + 1}`,
-        time_seconds: (mins * 60) + secs,
-        time: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
-      });
-    });
+  const profile = stats.profile_data || {};
+  const goal = profile.weekly_goal || 0;
+  const weekKm = stats.week_km || 0;
+  if (goal) document.getElementById('weekly-goal').value = goal;
+  const pct = goal > 0 ? Math.min(100, (weekKm / goal) * 100) : 0;
+  document.getElementById('weekly-progress').style.width = pct + '%';
+  document.getElementById('weekly-status').textContent = `${weekKm} / ${goal || '—'} km this week`;
+}
 
-    const res = await fetch('/api/session-results', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: pendingSessionId, results }),
-    });
+async function saveRaceDate() {
+  const date = document.getElementById('goal-race-date').value;
+  if (!date) return;
+  await fetch(`/api/race_date/${currentUser.id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ race_date: date })
+  });
+  await loadDashboard();
+}
 
-    if (res.ok) {
-      toast('Results saved');
-      document.getElementById('tracking-section').style.display = 'none';
-      document.getElementById('chat-input-row').style.display = 'flex';
-      pendingSessionId = null;
-      pendingPlan = null;
-      loadDashboard();
-    } else {
-      toast('Error saving results', true);
-    }
+async function saveWeeklyGoal() {
+  const val = parseInt(document.getElementById('weekly-goal').value);
+  if (isNaN(val) || val < 0) return;
+  await fetch(`/api/user/${currentUser.id}/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weekly_goal: val })
+  });
+  await loadDashboard();
+}
+
+// ─── ADD SESSION MODAL ────────────────────────────────────────
+function openModal() {
+  document.getElementById('add-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('add-distance').value = '';
+  document.getElementById('add-hours').value = '';
+  document.getElementById('add-mins').value = '';
+  document.getElementById('add-secs').value = '';
+  document.getElementById('add-effort').value = 5;
+  document.getElementById('effort-val').textContent = '5';
+  document.getElementById('add-notes').value = '';
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.type-btn[data-type="run"]').classList.add('active');
+  document.getElementById('modal-add').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modal-add').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function overlayClose(e) {
+  if (e.target.id === 'modal-add') closeModal();
+}
+
+function selectType(btn) {
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function saveSession() {
+  const type = document.querySelector('.type-btn.active').dataset.type;
+  const date = document.getElementById('add-date').value;
+  if (!date) { alert('Date is required'); return; }
+
+  const distance    = parseFloat(document.getElementById('add-distance').value) || 0;
+  const hours       = parseInt(document.getElementById('add-hours').value) || 0;
+  const mins        = parseInt(document.getElementById('add-mins').value) || 0;
+  const secs        = parseInt(document.getElementById('add-secs').value) || 0;
+  const time_seconds = hours * 3600 + mins * 60 + secs;
+  const effort      = parseInt(document.getElementById('add-effort').value);
+  const notes       = document.getElementById('add-notes').value;
+
+  const res = await fetch('/api/runs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: currentUser.id, date, type, distance, time_seconds, effort, notes })
+  });
+
+  if (res.ok) {
+    closeModal();
+    await loadDashboard();
+  } else {
+    const err = await res.json();
+    alert(err.error || 'Error saving session');
   }
+}
 
-  // ── LOG RUN ───────────────────────────────
-  function setType(type) {
-    currentRunType = type;
-    document.querySelectorAll('.type-tab').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-    document.querySelectorAll('.type-fields').forEach(f => f.classList.remove('active'));
-    document.getElementById('fields-' + type).classList.add('active');
-  }
+// ─── NAVIGATION ───────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  const nav = document.getElementById(`nav-${name}`);
+  if (nav) nav.classList.add('active');
+  if (name === 'activity') renderCharts();
+}
 
-  function calcPace() {
-    const dist = parseFloat(document.getElementById('run-distance').value);
-    const timeStr = document.getElementById('run-time').value;
-    const preview = document.getElementById('pace-preview');
-    if (!dist || !timeStr) { preview.textContent = ''; return; }
-    const parts = timeStr.split(':').map(Number);
-    let secs = 0;
-    if (parts.length === 3) secs = parts[0]*3600 + parts[1]*60 + parts[2];
-    else if (parts.length === 2) secs = parts[0]*60 + parts[1];
-    else secs = parts[0];
-    if (secs > 0 && dist > 0) {
-      const ps = secs / dist;
-      preview.textContent = `Pace: ${Math.floor(ps/60)}:${String(Math.floor(ps%60)).padStart(2,'0')}/km`;
-    }
-  }
+// ─── HELPERS ──────────────────────────────────────────────────
+function fmtTime(seconds) {
+  if (!seconds) return '—';
+  const s = parseInt(seconds);
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m < 60) return `${m}:${String(rem).padStart(2,'0')}`;
+  const h = Math.floor(m / 60);
+  return `${h}:${String(m % 60).padStart(2,'0')}:${String(rem).padStart(2,'0')}`;
+}
 
-  async function submitRun() {
-    const d = {
-      user_id: currentUser.id,
-      date: document.getElementById('run-date').value,
-      type: currentRunType,
-      effort: document.getElementById('run-effort').value,
-      notes: document.getElementById('run-notes').value,
-    };
+function fmtDate(str) {
+  if (!str) return '—';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
-    if (currentRunType === 'run') {
-      const timeStr = document.getElementById('run-time').value;
-      d.distance = parseFloat(document.getElementById('run-distance').value) || 0;
-      const parts = timeStr.split(':').map(Number);
-      if (parts.length === 3) d.time_seconds = parts[0]*3600 + parts[1]*60 + parts[2];
-      else if (parts.length === 2) d.time_seconds = parts[0]*60 + parts[1];
-    } else if (currentRunType === 'intervals') {
-      d.interval_dist = parseFloat(document.getElementById('int-dist').value);
-      d.interval_reps = parseInt(document.getElementById('int-reps').value);
-      d.interval_pace = document.getElementById('int-pace').value;
-      d.distance = (d.interval_dist / 1000) * (d.interval_reps || 0);
-    } else if (currentRunType === 'circuit') {
-      d.circuit_rounds = parseInt(document.getElementById('cir-rounds').value);
-      d.circuit_details = document.getElementById('cir-details').value;
-    } else if (currentRunType === 'technique') {
-      d.technique_drills = document.getElementById('tech-drills').value;
-    }
+function fmtShortDate(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
-    const res = await fetch('/api/runs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(d),
-    });
-
-    if (res.ok) {
-      toast('Session saved');
-      loadDashboard();
-    } else {
-      toast('Error saving session', true);
-    }
-  }
-
-  // ── HISTORY ──────────────────────────────
-  async function loadHistory() {
-    if (!currentUser) return;
-    const res = await fetch(`/api/runs/${currentUser.id}`);
-    const runs = await res.json();
-    const body = document.getElementById('history-body');
-    if (!runs.length) {
-      body.innerHTML = '<div class="empty-state">No sessions logged yet.</div>';
-      return;
-    }
-
-    const badgeClass = { run: 'badge-run', intervals: 'badge-intervals', circuit: 'badge-circuit', technique: 'badge-technique' };
-
-    body.innerHTML = `
-      <table class="history-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Distance</th>
-            <th>Pace</th>
-            <th>Effort</th>
-            <th>Notes</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${runs.map(r => {
-            let detail = '';
-            if (r.type === 'intervals' && r.interval_reps) {
-              detail = `${r.interval_reps}x${r.interval_dist}m`;
-              if (r.interval_trend === 'up') detail += ' <span class="trend-up">faster</span>';
-              if (r.interval_trend === 'down') detail += ' <span class="trend-down">slower</span>';
-            } else if (r.type === 'circuit') {
-              detail = r.circuit_details || '';
-            } else if (r.type === 'technique') {
-              detail = r.technique_drills || '';
-            }
-            return `
-              <tr>
-                <td>${r.date}</td>
-                <td><span class="run-type-badge ${badgeClass[r.type] || 'badge-run'}">${r.type}</span></td>
-                <td>${r.distance ? r.distance + ' km' : '-'}</td>
-                <td>${r.pace !== '-' ? r.pace + '/km' : '-'}</td>
-                <td>${r.effort}/10</td>
-                <td style="color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${detail || r.notes || '-'}</td>
-                <td><button class="btn-delete" onclick="deleteRun(${r.id})">Delete</button></td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-    `;
-  }
-
-  async function deleteRun(id) {
-    await fetch(`/api/runs/${id}`, { method: 'DELETE' });
-    toast('Deleted');
-    loadHistory();
-    loadDashboard();
-  }
-
-  // ── COOPER ────────────────────────────────
-  const FITNESS_LEVELS = ['Very Poor', 'Poor', 'Average', 'Good', 'Excellent', 'Superior'];
-
-  async function submitCooper() {
-    const d = {
-      user_id: currentUser.id,
-      date: document.getElementById('cooper-date').value,
-      distance_m: parseFloat(document.getElementById('cooper-dist').value),
-      notes: document.getElementById('cooper-notes').value,
-    };
-    if (!d.date || !d.distance_m) { toast('Date and distance required', true); return; }
-
-    const res = await fetch('/api/cooper', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(d),
-    });
-    const data = await res.json();
-
-    const resultEl = document.getElementById('cooper-result');
-    resultEl.classList.add('visible');
-    document.getElementById('res-dist').textContent = d.distance_m;
-    document.getElementById('res-vo2').textContent = data.vo2max;
-    document.getElementById('res-10k').textContent = data.proj_10k;
-    document.getElementById('res-level').textContent = data.fitness_level;
-
-    const levelIdx = FITNESS_LEVELS.indexOf(data.fitness_level);
-    document.querySelectorAll('.fitness-seg').forEach((seg, i) => {
-      seg.classList.toggle('active', i <= levelIdx);
-    });
-
-    loadCooper();
-    loadDashboard();
-  }
-
-  async function loadCooper() {
-    if (!currentUser) return;
-    const res = await fetch(`/api/cooper/${currentUser.id}`);
-    const tests = await res.json();
-    const body = document.getElementById('cooper-history-body');
-    if (!tests.length) {
-      body.innerHTML = '<div class="empty-state">No tests recorded yet.</div>';
-      return;
-    }
-    body.innerHTML = `
-      <table class="history-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Distance</th>
-            <th>VO2max</th>
-            <th>10K Proj</th>
-            <th>Level</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tests.map(t => `
-            <tr>
-              <td>${t.date}</td>
-              <td>${t.distance_m}m</td>
-              <td>${t.vo2max}</td>
-              <td>${t.proj_10k}</td>
-              <td>${t.fitness_level}</td>
-              <td><button class="btn-delete" onclick="deleteCooper(${t.id})">Delete</button></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-  }
-
-  async function deleteCooper(id) {
-    await fetch(`/api/cooper/${id}`, { method: 'DELETE' });
-    toast('Deleted');
-    loadCooper();
-  }
-
-  // ── TOAST ─────────────────────────────────
-  let toastTimer;
-  function toast(msg, err = false) {
-    const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.className = 'show' + (err ? ' err' : '');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.className = ''; }, 2800);
-  }
+// ─── START ────────────────────────────────────────────────────
+init();
 </script>
 </body>
 </html>
