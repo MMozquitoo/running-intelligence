@@ -1447,9 +1447,12 @@
   // ── DASHBOARD ────────────────────────────
   async function loadDashboard() {
     if (!currentUser) return;
-    const res = await fetch(`/api/stats/${currentUser.id}`);
+    const res = await fetch(`/api/user/${currentUser.id}/stats`);
     const s = await res.json();
     renderStats(s);
+    if (s.calories_burned !== undefined) {
+      renderAdvancedStats(s);
+    }
   }
 
   function renderStats(s) {
@@ -1744,6 +1747,7 @@
     if (!pendingSessionId || !pendingPlan) return;
 
     const exercises = document.querySelectorAll('.tracking-exercise');
+    console.log('tracking-exercise elements found:', exercises.length);
     const results = [];
     exercises.forEach((ex, i) => {
       const minInput = document.querySelector(`#track-min-${i}`);
@@ -1757,6 +1761,7 @@
         time: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
       });
     });
+    console.log('Enviando resultados:', results);
 
     const res = await fetch('/api/session-results', {
       method: 'POST',
