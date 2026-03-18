@@ -1476,18 +1476,13 @@ function renderActivityCharts(data) {
     options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } } }
   });
 
-  // 4 — Calories per week (estimated from load data weekly)
+  // 4 — Calories per week (MET * weight * hours, computed in backend)
   charts.calories = new Chart(document.getElementById('chart-calories'), {
     type: 'line',
     data: {
       labels: weeks,
       datasets: [{
-        data: weekly.map(w => {
-          // 8 MET * weight * hours — weight embedded in backend but not in weekly endpoint
-          // Use load as proxy: load * 0.1 kcal approximation
-          const load = (data.load_by_week || []).find(l => l.week === w.week)?.load || 0;
-          return Math.round(load * 0.5);
-        }),
+        data: weekly.map(w => w.calories || 0),
         borderColor: 'rgba(255,255,255,0.5)',
         borderWidth: 1.5,
         fill: true,
@@ -1646,12 +1641,12 @@ function renderGoals() {
   }
 
   const profile = stats.profile_data || {};
-  const goal = profile.weekly_goal || 0;
+  const goal = profile.weekly_goal > 0 ? profile.weekly_goal : null;
   const weekKm = stats.week_km || 0;
   if (goal) document.getElementById('weekly-goal').value = goal;
-  const pct = goal > 0 ? Math.min(100, (weekKm / goal) * 100) : 0;
+  const pct = goal ? Math.min(100, (weekKm / goal) * 100) : 0;
   document.getElementById('weekly-progress').style.width = pct + '%';
-  document.getElementById('weekly-status').textContent = `${weekKm} / ${goal || '—'} km this week`;
+  document.getElementById('weekly-status').textContent = goal ? `${weekKm} / ${goal} km this week` : '— / — km this week';
 }
 
 async function saveRaceDate() {
@@ -1795,24 +1790,25 @@ function fillFormFromParsed(parsed) {
 
   if (parsed.reps && parsed.reps.length > 0) {
     parsedReps = parsed.reps;
-    document.getElementById('parsed-reps-list').innerHTML = parsed.reps.map((r, i) => {
-      const t = r.time_seconds || 0;
-      const pMin = Math.floor(t / 60);
-      const pSec = Math.floor(t % 60);
-      const pCs  = Math.round((t - Math.floor(t)) * 100);
-      return `
+    document.getElementById('parsed-reps-list').innerHTML = parsed.reps.map((r, i) => `
       <div class="rep-row">
         <span class="rep-label">Rep ${r.rep_number} &mdash; ${r.distance_m}m</span>
         <div class="time-row" style="flex:0;gap:4px">
-          <input type="number" id="rep-min-${i}" value="${pMin || ''}" min="0" max="59" style="width:46px">
+          <input type="number" id="rep-min-${i}" min="0" max="59" style="width:46px">
           <span>m</span>
-          <input type="number" id="rep-sec-${i}" value="${pSec || ''}" min="0" max="59" style="width:46px">
+          <input type="number" id="rep-sec-${i}" min="0" max="59" style="width:46px">
           <span>s</span>
-          <input type="number" id="rep-cs-${i}" value="${pCs || ''}" min="0" max="99" style="width:46px">
+          <input type="number" id="rep-cs-${i}" min="0" max="99" style="width:46px">
           <span>cs</span>
         </div>
-      </div>`;
-    }).join('');
+      </div>`).join('');
+    // Set values imperatively after DOM is created (avoids || '' dropping zeros)
+    parsed.reps.forEach((r, i) => {
+      const t = parseFloat(r.time_seconds) || 0;
+      document.getElementById(`rep-min-${i}`).value = Math.floor(t / 60) || '';
+      document.getElementById(`rep-sec-${i}`).value = Math.floor(t % 60);
+      document.getElementById(`rep-cs-${i}`).value  = Math.round((t % 1) * 100) || '';
+    });
     document.getElementById('parsed-reps-section').style.display = 'block';
   }
 }

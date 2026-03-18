@@ -613,25 +613,28 @@ def activity_stats(user_id):
     """, (user_id,))
     runs = [dict(r) for r in c.fetchall()]
 
+    c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
+    row = c.fetchone()
+    profile_data = (row["profile_data"] or {}) if row else {}
+    weight_kg = float(profile_data.get("weight_kg", 70))
+
     c.execute("""
         SELECT
             date_trunc('week', date::date) as week,
             COALESCE(SUM(distance), 0) as km,
             COUNT(*) as sessions,
-            COALESCE(AVG(effort), 0) as avg_effort
+            COALESCE(AVG(effort), 0) as avg_effort,
+            COALESCE(SUM(time_seconds), 0) as total_seconds
         FROM runs WHERE user_id = %s
         AND date >= CURRENT_DATE - INTERVAL '84 days'
         GROUP BY week ORDER BY week ASC
     """, (user_id,))
     weekly = [dict(r) for r in c.fetchall()]
 
-    c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
-    row = c.fetchone()
-    profile_data = (row["profile_data"] or {}) if row else {}
-    weight_kg = profile_data.get("weight_kg", 70)
-
     for w in weekly:
-        w["calories"] = 0
+        hours = float(w["total_seconds"]) / 3600
+        # MET ~8 for running, calories = MET * weight_kg * hours
+        w["calories"] = round(8 * weight_kg * hours)
         w["week"] = str(w["week"])[:10]
 
     c.execute("""
