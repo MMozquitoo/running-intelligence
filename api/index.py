@@ -521,6 +521,16 @@ def _extract_profile(text):
     return None
 
 
+def _extract_run(text):
+    match = re.search(r'\{"run"\s*:\s*\{.*?\}\}', text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except Exception:
+            pass
+    return None
+
+
 def _template_key(plan):
     """Generate a deterministic key for a plan structure."""
     if not plan:
@@ -571,31 +581,36 @@ def api_chat():
 
     profile_str = json.dumps(profile_data) if profile_data else "null"
 
-    system_prompt = f"""Eres una entrenadora de running personalizada. Sin emojis. Respuestas concisas en espanol.
-Atleta: {user_name}
+    system_prompt = f"""You are a personalized running coach. No emojis. Concise responses. Always reply in the same language the athlete writes in.
+Athlete: {user_name}
 
-Si el atleta no tiene perfil guardado (profile_data es null o vacio), tu primera tarea es recopilar estos datos uno a uno en la conversacion:
-- Edad
-- Peso en kg
-- Nivel actual (principiante / intermedio / avanzado)
-- Objetivo principal (completar 10k / mejorar tiempo / perder peso / resistencia general)
-- Dias disponibles por semana para entrenar
+If the athlete has no saved profile (profile_data is null or empty), your first task is to collect these fields one by one in the conversation:
+- Age
+- Weight in kg
+- Current level (beginner / intermediate / advanced)
+- Main goal (complete 10k / improve time / lose weight / general endurance)
+- Days available per week to train
 
-Cuando tengas todos esos datos, calcula los tiempos estimados segun tablas de rendimiento estandar y devuelve al final de tu mensaje este JSON exacto:
-{{"profile": {{"age": 28, "weight_kg": 70, "level": "intermedio", "goal": "completar 10k", "days_per_week": 4, "est_100m_sec": 18, "est_400m_sec": 95, "est_1km_sec": 280, "est_5km_sec": 1500, "est_10km_sec": 3200}}}}
+Once you have all that data, calculate estimated times based on standard performance tables and return at the end of your message this exact JSON:
+{{"profile": {{"age": 28, "weight_kg": 70, "level": "intermediate", "goal": "complete 10k", "days_per_week": 4, "est_100m_sec": 18, "est_400m_sec": 95, "est_1km_sec": 280, "est_5km_sec": 1500, "est_10km_sec": 3200}}}}
 
-Despues del onboarding, usa el perfil y el historial para generar planes personalizados.
-Cuando generes un plan de entrenamiento devuelve al final de tu mensaje este JSON exacto:
-{{"plan": [{{"label": "Calentamiento", "type": "warmup"}}, {{"label": "Serie 1 - 400m", "type": "interval"}}]}}
+After onboarding, use the profile and history to generate personalized plans.
+When generating a training plan return at the end of your message this exact JSON:
+{{"plan": [{{"label": "Warm-up", "type": "warmup"}}, {{"label": "Series 1 - 400m", "type": "interval"}}]}}
 
-Los tipos validos para el plan son: warmup, lap, interval, rest, cooldown, series, drill.
-Nunca pongas los bloques JSON en medio del texto, siempre al final.
-No uses emojis en ninguna parte de tu respuesta.
+Valid types for the plan are: warmup, lap, interval, rest, cooldown, series, drill.
 
-Historial del atleta:
+When the athlete tells you they completed a run (mentions distance, time, or how a run went), extract the key data and return at the end of your message this exact JSON:
+{{"run": {{"date": "2025-01-15", "type": "run", "distance": 5.0, "time_seconds": 1800, "effort": 7, "notes": "felt good"}}}}
+Valid types: run, intervals, circuit, technique, race. Use today's date if no date is mentioned. time_seconds is total run time as integer (0 if unknown). distance is in km (0 if unknown). effort is 1-10 RPE.
+
+Never put JSON blocks in the middle of text, always at the end.
+Do not use emojis anywhere in your response.
+
+Athlete history:
 {history_str}
 
-Perfil actual: {profile_str}"""
+Current profile: {profile_str}"""
 
     # Build full conversation history for context
     conn2 = get_conn()
@@ -626,12 +641,14 @@ Perfil actual: {profile_str}"""
 
     plan_json = _extract_plan(ai_text)
     profile_json = _extract_profile(ai_text)
+    run_json = _extract_run(ai_text)
     clean_text = ai_text
     session_id = None
 
     # Strip JSON blocks from display text (always at end, strip greedily)
     clean_text = re.sub(r'\{"plan"\s*:\s*\[.*?\]\}', '', clean_text, flags=re.DOTALL).strip()
     clean_text = re.sub(r'\{"profile"\s*:\s*\{.*?\}\}', '', clean_text, flags=re.DOTALL).strip()
+    clean_text = re.sub(r'\{"run"\s*:\s*\{.*?\}\}', '', clean_text, flags=re.DOTALL).strip()
 
     if plan_json and plan_json.get("plan"):
         plan = plan_json["plan"]
@@ -648,6 +665,23 @@ Perfil actual: {profile_str}"""
             (json.dumps(profile_json["profile"]), user_id)
         )
 
+    if run_json and run_json.get("run"):
+        r = run_json["run"]
+        distance = float(r.get("distance", 0))
+        time_sec = int(r.get("time_seconds", 0))
+        pace = "-"
+        if distance > 0 and time_sec > 0:
+            ps = time_sec / distance
+            pace = f"{int(ps//60)}:{int(ps%60):02d}"
+        run_date = r.get("date") or date.today().strftime("%Y-%m-%d")
+        c2.execute("""
+            INSERT INTO runs (user_id, date, type, distance, time_seconds, pace, effort, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            user_id, run_date, r.get("type", "run"), distance, time_sec, pace,
+            int(r.get("effort", 5)), r.get("notes", "")
+        ))
+
     c2.execute(
         "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s)",
         (user_id, 'user', message)
@@ -663,6 +697,7 @@ Perfil actual: {profile_str}"""
         "plan": plan_json["plan"] if plan_json else None,
         "session_id": session_id,
         "profile_saved": profile_json is not None,
+        "run_saved": run_json is not None,
     })
 
 
