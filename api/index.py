@@ -597,16 +597,31 @@ Historial del atleta:
 
 Perfil actual: {profile_str}"""
 
+    # Build full conversation history for context
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+    c2.execute("""
+        SELECT role, content FROM chat_history
+        WHERE user_id = %s
+        ORDER BY created_at ASC
+        LIMIT 20
+    """, (user_id,))
+    history_rows = c2.fetchall()
+
+    messages = [{"role": r["role"], "content": r["content"]} for r in history_rows]
+    messages.append({"role": "user", "content": message})
+
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=1024,
             system=system_prompt,
-            messages=[{"role": "user", "content": message}]
+            messages=messages
         )
         ai_text = response.content[0].text
     except Exception as e:
+        c2.close(); conn2.close()
         return jsonify({"error": f"AI error: {str(e)}"}), 500
 
     plan_json = _extract_plan(ai_text)
@@ -617,9 +632,6 @@ Perfil actual: {profile_str}"""
     # Strip JSON blocks from display text (always at end, strip greedily)
     clean_text = re.sub(r'\{"plan"\s*:\s*\[.*?\]\}', '', clean_text, flags=re.DOTALL).strip()
     clean_text = re.sub(r'\{"profile"\s*:\s*\{.*?\}\}', '', clean_text, flags=re.DOTALL).strip()
-
-    conn2 = get_conn()
-    c2 = conn2.cursor()
 
     if plan_json and plan_json.get("plan"):
         plan = plan_json["plan"]
@@ -714,17 +726,7 @@ def api_session_results():
     c = conn.cursor()
 
     for i, r in enumerate(results):
-        time_str = r.get("time", "")
-        time_seconds = None
-        if time_str:
-            try:
-                parts = time_str.split(":")
-                if len(parts) == 2:
-                    time_seconds = int(parts[0]) * 60 + int(parts[1])
-                elif len(parts) == 3:
-                    time_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-            except Exception:
-                pass
+        time_seconds = r.get("time_seconds") or 0
 
         c.execute("""
             INSERT INTO session_results (session_id, exercise_index, label, time_seconds, notes)

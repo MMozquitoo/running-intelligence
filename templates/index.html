@@ -1747,7 +1747,6 @@
     if (!pendingSessionId || !pendingPlan) return;
 
     const exercises = document.querySelectorAll('.tracking-exercise');
-    console.log('tracking-exercise elements found:', exercises.length);
     const results = [];
     exercises.forEach((ex, i) => {
       const minInput = document.querySelector(`#track-min-${i}`);
@@ -1761,7 +1760,6 @@
         time: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
       });
     });
-    console.log('Enviando resultados:', results);
 
     const res = await fetch('/api/session-results', {
       method: 'POST',
