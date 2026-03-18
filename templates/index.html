@@ -1392,23 +1392,29 @@ function destroyCharts() {
 }
 
 async function loadActivity() {
-  const [actRes, statsRes] = await Promise.all([
-    fetch(`/api/user/${currentUser.id}/activity-stats`),
-    fetch(`/api/stats/${currentUser.id}`)
-  ]);
-  const actData = await actRes.json();
-  const statsData = await statsRes.json();
+  try {
+    const [actRes, statsRes] = await Promise.all([
+      fetch(`/api/user/${currentUser.id}/activity-stats`),
+      fetch(`/api/stats/${currentUser.id}`)
+    ]);
+    const actData = await actRes.json();
+    const statsData = await statsRes.json();
+    console.log('[activity] activity-stats response:', actData);
+    console.log('[activity] stats response:', statsData);
 
-  document.getElementById('act-laps').textContent = statsData.total_laps ?? '—';
-  document.getElementById('act-vo2').textContent = statsData.vo2max ?? '—';
-  document.getElementById('act-recovery').textContent = statsData.recovery_hours ?? '—';
-  document.getElementById('act-load').textContent = statsData.week_load ?? '—';
+    document.getElementById('act-laps').textContent = statsData.total_laps ?? '—';
+    document.getElementById('act-vo2').textContent = statsData.vo2max ?? '—';
+    document.getElementById('act-recovery').textContent = statsData.recovery_hours ?? '—';
+    document.getElementById('act-load').textContent = statsData.week_load ?? '—';
 
-  renderActivityCharts(actData);
+    renderActivityCharts(actData);
+  } catch(e) {
+    console.error('[activity] loadActivity error:', e);
+  }
 }
 
 function renderActivityCharts(data) {
-  destroyCharts();
+  try { destroyCharts(); } catch(e) { console.error('[activity] destroyCharts error:', e); charts = {}; }
 
   const weekly = data.weekly || [];
   const weeks  = weekly.map(w => w.week.slice(5));
@@ -1988,7 +1994,7 @@ function showTab(name) {
   document.getElementById(`tab-${name}`).classList.add('active');
   const nav = document.getElementById(`nav-${name}`);
   if (nav) nav.classList.add('active');
-  if (name === 'activity') renderCharts();
+  if (name === 'activity') loadActivity();
   if (name === 'goals') { renderGoals(); loadGoals(); }
 }
 
