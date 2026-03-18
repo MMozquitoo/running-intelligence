@@ -413,20 +413,38 @@
       text-transform: uppercase;
     }
 
-    .tracking-time-input {
-      width: 100px;
+    .time-input-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .time-min, .time-sec {
+      width: 52px;
       background: transparent;
       border: 1px solid var(--input-border);
       border-radius: 8px;
-      padding: 6px 10px;
+      padding: 6px 8px;
       color: var(--text);
       font-family: 'Inter', monospace;
       font-size: 14px;
       text-align: center;
       outline: none;
+      -moz-appearance: textfield;
     }
-    .tracking-time-input:focus { border-color: rgba(255,255,255,0.3); }
-    .tracking-time-input::placeholder { color: var(--muted); }
+    .time-min::-webkit-outer-spin-button,
+    .time-min::-webkit-inner-spin-button,
+    .time-sec::-webkit-outer-spin-button,
+    .time-sec::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .time-min:focus, .time-sec:focus { border-color: rgba(255,255,255,0.3); }
+    .time-min::placeholder, .time-sec::placeholder { color: var(--muted); }
+
+    .time-sep {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
 
     .btn-save-results {
       margin-top: 4px;
@@ -1211,10 +1229,16 @@
     document.getElementById('screen-profile').classList.remove('active');
     document.getElementById('screen-app').classList.add('active');
     loadDashboard();
+    loadChatHistory(id);
   }
 
   function switchUser() {
     currentUser = null;
+    document.getElementById('chat-messages').innerHTML = `
+      <div class="chat-empty" id="chat-empty">
+        <div class="chat-empty-title">Ask your coach</div>
+        <div>Describe your goals, ask for a training plan,<br>or request workout suggestions.</div>
+      </div>`;
     document.getElementById('screen-app').classList.remove('active');
     document.getElementById('screen-profile').classList.add('active');
   }
@@ -1228,8 +1252,27 @@
     const idx = tabs.indexOf(name);
     document.querySelectorAll('.nav-tab')[idx].classList.add('active');
 
+    if (name === 'home') loadChatHistory(currentUser?.id);
     if (name === 'history') loadHistory();
     if (name === 'cooper') loadCooper();
+  }
+
+  // ── CHAT HISTORY ─────────────────────────
+  async function loadChatHistory(userId) {
+    if (!userId) return;
+    const res = await fetch(`/api/chat-history/${userId}`);
+    const messages = await res.json();
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = '';
+    if (messages.length === 0) {
+      container.innerHTML = `
+        <div class="chat-empty" id="chat-empty">
+          <div class="chat-empty-title">Ask your coach</div>
+          <div>Describe your goals, ask for a training plan,<br>or request workout suggestions.</div>
+        </div>`;
+      return;
+    }
+    messages.forEach(msg => appendMessage(msg.role === 'assistant' ? 'ai' : 'user', msg.content));
   }
 
   // ── DASHBOARD ────────────────────────────
@@ -1423,16 +1466,28 @@
     const form = document.getElementById('tracking-form');
     form.innerHTML = plan.map((item, i) => `
       <div class="tracking-item">
-        <div>
+        <div style="flex:1;">
           <div class="tracking-label">${item.label}</div>
           <div class="tracking-type-badge">${item.type}</div>
         </div>
-        <input
-          type="text"
-          class="tracking-time-input"
-          id="track-time-${i}"
-          placeholder="mm:ss"
-        />
+        <div class="time-input-group">
+          <input
+            type="number"
+            class="time-min"
+            id="track-min-${i}"
+            placeholder="00"
+            min="0" max="99"
+          />
+          <span class="time-sep">min</span>
+          <input
+            type="number"
+            class="time-sec"
+            id="track-sec-${i}"
+            placeholder="00"
+            min="0" max="59"
+          />
+          <span class="time-sep">seg</span>
+        </div>
       </div>
     `).join('');
   }
@@ -1440,10 +1495,16 @@
   async function saveResults() {
     if (!pendingSessionId || !pendingPlan) return;
 
-    const results = pendingPlan.map((item, i) => ({
-      label: item.label,
-      time: document.getElementById(`track-time-${i}`)?.value || '',
-    }));
+    const results = pendingPlan.map((item, i) => {
+      const mins = parseInt(document.getElementById(`track-min-${i}`)?.value) || 0;
+      const secs = parseInt(document.getElementById(`track-sec-${i}`)?.value) || 0;
+      const totalSeconds = (mins * 60) + secs;
+      return {
+        label: item.label,
+        time_seconds: totalSeconds,
+        time: `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`,
+      };
+    });
 
     const res = await fetch('/api/session-results', {
       method: 'POST',

@@ -94,6 +94,16 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS chat_history (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER REFERENCES users(id),
+            role       TEXT NOT NULL,
+            content    TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     # Migrations for existing deployments
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS race_date TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_data JSONB")
@@ -562,25 +572,54 @@ Do not use emojis anywhere in your response."""
     clean_text = ai_text
     session_id = None
 
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+
     if plan_json and plan_json.get("plan"):
         plan = plan_json["plan"]
         t_key = _template_key(plan)
         clean_text = re.sub(r'\{"plan"\s*:\s*\[.*?\]\}', '', ai_text, flags=re.DOTALL).strip()
 
-        conn2 = get_conn()
-        c2 = conn2.cursor()
         c2.execute("""
             INSERT INTO training_sessions (user_id, plan, template_key, status)
             VALUES (%s, %s, %s, 'pending') RETURNING id
         """, (user_id, json.dumps(plan), t_key))
         session_id = c2.fetchone()["id"]
-        conn2.commit(); c2.close(); conn2.close()
+
+    c2.execute(
+        "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s)",
+        (user_id, 'user', message)
+    )
+    c2.execute(
+        "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s)",
+        (user_id, 'assistant', clean_text)
+    )
+    conn2.commit(); c2.close(); conn2.close()
 
     return jsonify({
         "text": clean_text,
         "plan": plan_json["plan"] if plan_json else None,
         "session_id": session_id,
     })
+
+
+@app.route("/api/chat-history/<int:user_id>")
+def api_chat_history(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        SELECT role, content, created_at
+        FROM chat_history
+        WHERE user_id = %s
+        ORDER BY created_at ASC
+        LIMIT 50
+    """, (user_id,))
+    rows = c.fetchall()
+    c.close(); conn.close()
+    return jsonify([
+        {"role": r["role"], "content": r["content"], "created_at": str(r["created_at"])}
+        for r in rows
+    ])
 
 
 # ─────────────────────────────────────────
