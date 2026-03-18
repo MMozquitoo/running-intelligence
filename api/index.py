@@ -16,6 +16,84 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 # ─────────────────────────────────────────
+# WORLD ATHLETICS STANDARDS
+# ─────────────────────────────────────────
+
+ATHLETICS_STANDARDS = {
+    "male": {
+        25: {
+            "100m":  {"beginner": 14, "amateur": 12, "good": 11},
+            "400m":  {"beginner": 75, "amateur": 58, "good": 50},
+            "800m":  {"beginner": 210, "amateur": 165, "good": 140},
+            "1mile": {"beginner": 480, "amateur": 375, "good": 310},
+            "5km":   {"beginner": 1800, "amateur": 1380, "good": 1140},
+            "10km":  {"beginner": 3600, "amateur": 2880, "good": 2400},
+        },
+        35: {
+            "100m":  {"beginner": 15, "amateur": 13, "good": 12},
+            "400m":  {"beginner": 80, "amateur": 62, "good": 54},
+            "800m":  {"beginner": 225, "amateur": 175, "good": 150},
+            "1mile": {"beginner": 510, "amateur": 395, "good": 330},
+            "5km":   {"beginner": 1920, "amateur": 1500, "good": 1200},
+            "10km":  {"beginner": 3840, "amateur": 3000, "good": 2520},
+        },
+        50: {
+            "100m":  {"beginner": 17, "amateur": 14, "good": 13},
+            "400m":  {"beginner": 90, "amateur": 70, "good": 60},
+            "800m":  {"beginner": 255, "amateur": 195, "good": 165},
+            "1mile": {"beginner": 570, "amateur": 435, "good": 365},
+            "5km":   {"beginner": 2100, "amateur": 1620, "good": 1320},
+            "10km":  {"beginner": 4200, "amateur": 3240, "good": 2760},
+        },
+    },
+    "female": {
+        25: {
+            "100m":  {"beginner": 16, "amateur": 14, "good": 13},
+            "400m":  {"beginner": 85, "amateur": 68, "good": 58},
+            "800m":  {"beginner": 240, "amateur": 190, "good": 160},
+            "1mile": {"beginner": 540, "amateur": 420, "good": 350},
+            "5km":   {"beginner": 2100, "amateur": 1560, "good": 1260},
+            "10km":  {"beginner": 4200, "amateur": 3120, "good": 2640},
+        },
+        35: {
+            "100m":  {"beginner": 17, "amateur": 15, "good": 14},
+            "400m":  {"beginner": 92, "amateur": 73, "good": 63},
+            "800m":  {"beginner": 255, "amateur": 200, "good": 170},
+            "1mile": {"beginner": 570, "amateur": 445, "good": 375},
+            "5km":   {"beginner": 2220, "amateur": 1680, "good": 1320},
+            "10km":  {"beginner": 4440, "amateur": 3360, "good": 2760},
+        },
+        50: {
+            "100m":  {"beginner": 19, "amateur": 16, "good": 15},
+            "400m":  {"beginner": 100, "amateur": 80, "good": 70},
+            "800m":  {"beginner": 285, "amateur": 220, "good": 188},
+            "1mile": {"beginner": 630, "amateur": 490, "good": 415},
+            "5km":   {"beginner": 2400, "amateur": 1800, "good": 1440},
+            "10km":  {"beginner": 4800, "amateur": 3600, "good": 3000},
+        },
+    }
+}
+
+
+def get_standard_for_user(profile_data):
+    age = profile_data.get("age", 25)
+    sex = profile_data.get("sex", "male")
+    level = profile_data.get("level", "beginner")
+    level_map = {
+        "principiante": "beginner", "intermedio": "amateur", "avanzado": "good",
+        "amateur": "amateur", "beginner": "beginner", "good": "good",
+        "intermediate": "amateur", "advanced": "good",
+    }
+    level_key = level_map.get(level, "beginner")
+    standards = ATHLETICS_STANDARDS.get(sex, ATHLETICS_STANDARDS["male"])
+    for age_max in sorted(standards.keys()):
+        if age <= age_max:
+            return {k: v[level_key] for k, v in standards[age_max].items()}
+    last = sorted(standards.keys())[-1]
+    return {k: v[level_key] for k, v in standards[last].items()}
+
+
+# ─────────────────────────────────────────
 # DB CONNECTION
 # ─────────────────────────────────────────
 
@@ -36,8 +114,17 @@ def init_db():
         )
     """)
 
-    for name in ["Cristian", "Adrien"]:
-        c.execute("INSERT INTO users (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (name,))
+    seed_users = [
+        ("Cristian", {"sex": "male",   "age": 21, "weight_kg": 64, "level": "beginner"}),
+        ("Adrien",   {"sex": "male",   "age": 43, "weight_kg": 77, "level": "amateur"}),
+        ("Laurine",  {"sex": "female", "age": 23, "weight_kg": 53, "level": "amateur"}),
+    ]
+    for name, profile in seed_users:
+        c.execute("""
+            INSERT INTO users (name, profile_data)
+            VALUES (%s, %s)
+            ON CONFLICT (name) DO UPDATE SET profile_data = EXCLUDED.profile_data
+        """, (name, json.dumps(profile)))
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS runs (
@@ -101,6 +188,29 @@ def init_db():
             role       TEXT NOT NULL,
             content    TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS run_reps (
+            id           SERIAL PRIMARY KEY,
+            run_id       INTEGER REFERENCES runs(id) ON DELETE CASCADE,
+            rep_number   INTEGER NOT NULL,
+            distance_m   INTEGER,
+            time_seconds INTEGER,
+            notes        TEXT
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS user_goals (
+            id             SERIAL PRIMARY KEY,
+            user_id        INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            distance_key   TEXT NOT NULL,
+            target_seconds INTEGER NOT NULL,
+            basis          TEXT,
+            calculated_at  TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_id, distance_key)
         )
     """)
 
@@ -224,6 +334,17 @@ def api_add_run():
     ))
     new_id = c.fetchone()["id"]
     conn.commit(); c.close(); conn.close()
+
+    try:
+        import threading
+        uid = int(d["user_id"])
+        def bg_recalc():
+            with app.app_context():
+                recalculate_goals(uid)
+        threading.Thread(target=bg_recalc, daemon=True).start()
+    except Exception:
+        pass
+
     return jsonify({"id": new_id, "pace": pace}), 201
 
 
@@ -378,6 +499,22 @@ def _build_stats(user_id):
         "10km":  profile.get("est_10km_sec"),
     }
 
+    # Best rep across all sessions
+    conn3 = get_conn()
+    c3 = conn3.cursor()
+    c3.execute("""
+        SELECT rr.distance_m, MIN(rr.time_seconds) as best_time
+        FROM run_reps rr
+        JOIN runs r ON r.id = rr.run_id
+        WHERE r.user_id = %s AND rr.time_seconds > 0
+        GROUP BY rr.distance_m
+        ORDER BY MIN(rr.time_seconds) ASC
+        LIMIT 1
+    """, (user_id,))
+    best_rep_row = c3.fetchone()
+    best_rep = dict(best_rep_row) if best_rep_row else None
+    c3.close(); conn3.close()
+
     return {
         "total_km": total_km,
         "total_runs": total_runs,
@@ -403,6 +540,7 @@ def _build_stats(user_id):
         "total_time_seconds": total_time_seconds,
         "calories_burned": calories_burned,
         "estimates": estimates,
+        "best_rep": best_rep,
     }
 
 
@@ -772,6 +910,135 @@ def api_session_results():
     conn.commit(); c.close(); conn.close()
 
     return jsonify({"message": "Results saved", "session_id": session_id}), 201
+
+
+# ─────────────────────────────────────────
+# REPS
+# ─────────────────────────────────────────
+
+@app.route("/api/runs/<int:run_id>/reps", methods=["POST"])
+def save_reps(run_id):
+    data = request.get_json()
+    reps = data.get("reps", [])
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM run_reps WHERE run_id = %s", (run_id,))
+    for rep in reps:
+        c.execute("""
+            INSERT INTO run_reps (run_id, rep_number, distance_m, time_seconds, notes)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (run_id, rep["rep_number"], rep.get("distance_m"), rep.get("time_seconds"), rep.get("notes", "")))
+    conn.commit()
+    c.close(); conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/runs/<int:run_id>/reps")
+def get_reps(run_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM run_reps WHERE run_id = %s ORDER BY rep_number", (run_id,))
+    rows = [dict(r) for r in c.fetchall()]
+    c.close(); conn.close()
+    return jsonify(rows)
+
+
+# ─────────────────────────────────────────
+# GOALS (dynamic, AI-calculated)
+# ─────────────────────────────────────────
+
+@app.route("/api/user/<int:user_id>/recalculate-goals", methods=["POST"])
+def recalculate_goals(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
+    row = c.fetchone()
+    profile = dict(row["profile_data"]) if row and row["profile_data"] else {}
+
+    c.execute("""
+        SELECT r.id, r.type, r.distance, r.time_seconds, r.date
+        FROM runs r WHERE r.user_id = %s
+        ORDER BY r.date DESC LIMIT 10
+    """, (user_id,))
+    recent_runs = [dict(r) for r in c.fetchall()]
+
+    run_ids = [r["id"] for r in recent_runs]
+    reps_by_run = {}
+    if run_ids:
+        c.execute("SELECT * FROM run_reps WHERE run_id = ANY(%s)", (run_ids,))
+        for rep in c.fetchall():
+            reps_by_run.setdefault(rep["run_id"], []).append(dict(rep))
+
+    standards = get_standard_for_user(profile)
+
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        prompt = f"""You are a running performance analyst. No emojis. Respond only with valid JSON.
+
+Athlete profile: {json.dumps(profile)}
+World Athletics standard for this athlete: {json.dumps(standards)}
+Recent sessions: {json.dumps(recent_runs)}
+Recent reps: {json.dumps(reps_by_run)}
+
+Based on the athlete's recent performance, calculate realistic improvement goals.
+For each distance the athlete has trained, set a target that is 3-5% better than their recent best.
+If no data exists for a distance, use the World Athletics standard as the goal.
+
+Respond with ONLY this JSON, no other text:
+{{"goals": {{"100m": 13, "400m": 58, "800m": 155, "1mile": 340, "5km": 1200, "10km": 2500}}}}
+
+Only include distances where you have data or a standard. All values in seconds."""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        goals_json = json.loads(response.content[0].text)
+        goals = goals_json.get("goals", {})
+        for dist_key, target_secs in goals.items():
+            c.execute("""
+                INSERT INTO user_goals (user_id, distance_key, target_seconds, basis, calculated_at)
+                VALUES (%s, %s, %s, 'ai_calculated', NOW())
+                ON CONFLICT (user_id, distance_key)
+                DO UPDATE SET target_seconds = EXCLUDED.target_seconds,
+                              basis = 'ai_calculated',
+                              calculated_at = NOW()
+            """, (user_id, dist_key, int(target_secs)))
+        conn.commit()
+    except Exception:
+        pass
+
+    c.close(); conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/user/<int:user_id>/goals")
+def get_user_goals(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
+    row = c.fetchone()
+    profile = dict(row["profile_data"]) if row and row["profile_data"] else {}
+    standards = get_standard_for_user(profile)
+
+    c.execute("SELECT distance_key, target_seconds, basis FROM user_goals WHERE user_id = %s", (user_id,))
+    goals = {r["distance_key"]: {"target": r["target_seconds"], "basis": r["basis"]} for r in c.fetchall()}
+
+    c.execute("""
+        SELECT rr.distance_m, MIN(rr.time_seconds) as best
+        FROM run_reps rr
+        JOIN runs r ON r.id = rr.run_id
+        WHERE r.user_id = %s AND rr.time_seconds IS NOT NULL AND rr.time_seconds > 0
+        GROUP BY rr.distance_m
+    """, (user_id,))
+    dist_map = {100: "100m", 400: "400m", 800: "800m", 1609: "1mile", 5000: "5km", 10000: "10km"}
+    bests = {dist_map[r["distance_m"]]: r["best"] for r in c.fetchall() if r["distance_m"] in dist_map}
+
+    c.close(); conn.close()
+    return jsonify({"goals": goals, "standards": standards, "bests": bests})
 
 
 @app.route("/api/user/<int:user_id>/profile", methods=["PUT"])

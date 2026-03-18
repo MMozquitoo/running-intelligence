@@ -688,6 +688,89 @@
     .targets-table td:first-child { color: var(--text-secondary); font-weight: 500; }
     .targets-table td:last-child { text-align: right; font-weight: 300; }
 
+    /* ── GOAL ROWS (dynamic goals table) ── */
+    .goal-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 1fr 1fr;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 6px;
+    }
+    .goal-row:last-child { border-bottom: none; }
+    .goal-dist { font-weight: 600; font-size: 13px; }
+    .goal-col { text-align: center; }
+    .goal-col-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+    .goal-col-value { font-size: 13px; font-weight: 500; }
+    .goal-col-value.good   { color: #4ade80; }
+    .goal-col-value.close  { color: #facc15; }
+    .goal-col-value.behind { color: #f87171; }
+
+    .goals-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── BEST REP CARD ── */
+    .best-rep-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .best-rep-left { display: flex; flex-direction: column; gap: 3px; }
+    .best-rep-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .best-rep-dist { font-size: 12px; color: var(--text-secondary); }
+    .best-rep-time { font-size: 24px; font-weight: 300; }
+
+    /* ── REP ROWS ── */
+    .rep-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .rep-row:last-child { border-bottom: none; }
+    .rep-label { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: calc(80px + env(safe-area-inset-bottom));
+      left: 50%; transform: translateX(-50%);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 500;
+      opacity: 0;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+
     /* ── STATES ── */
     .empty-state {
       text-align: center;
@@ -757,6 +840,14 @@
           <div class="stat-value" id="stat-week">0</div>
           <div class="stat-sub">km</div>
         </div>
+      </div>
+
+      <div class="best-rep-card" id="best-rep-card" style="display:none">
+        <div class="best-rep-left">
+          <div class="best-rep-label">Best Rep</div>
+          <div class="best-rep-dist" id="best-rep-dist">—</div>
+        </div>
+        <div class="best-rep-time" id="best-rep-val">—</div>
       </div>
 
       <div class="perf-card">
@@ -850,15 +941,15 @@
       </div>
 
       <div class="goal-card">
-        <div class="goal-label">Performance Estimates</div>
-        <table class="targets-table">
-          <thead>
-            <tr><th>Distance</th><th>Estimated</th></tr>
-          </thead>
-          <tbody id="perf-targets-body">
-            <tr><td colspan="2" style="text-align:center;color:var(--text-muted);font-size:12px;padding:16px 0">No profile data</td></tr>
-          </tbody>
-        </table>
+        <div class="goal-label">Performance Goals</div>
+        <div class="goal-row" style="padding:0 0 8px;border-bottom:1px solid var(--border)">
+          <div></div>
+          <div class="goal-col"><div class="goal-col-label">Standard</div></div>
+          <div class="goal-col"><div class="goal-col-label">Your Goal</div></div>
+          <div class="goal-col"><div class="goal-col-label">Your Best</div></div>
+        </div>
+        <div id="goals-table"><div class="loading" style="padding:20px 0">Loading...</div></div>
+        <div class="goals-note" id="goals-note"></div>
       </div>
 
       <div class="goal-card">
@@ -958,6 +1049,9 @@ let runs = [];
 let stats = {};
 let cooperTests = [];
 let charts = {};
+let currentRepRunId = null;
+let currentRepDist = 100;
+let currentRepCount = 6;
 
 // ─── INIT ────────────────────────────────────────────────────
 async function init() {
@@ -1016,6 +1110,7 @@ async function loadDashboard() {
 
   renderHome();
   renderGoals();
+  loadGoals();
   renderCooperHistory();
 
   if (document.getElementById('tab-activity').classList.contains('active')) {
@@ -1039,6 +1134,15 @@ function renderHome() {
   document.getElementById('stat-streak').textContent = stats.streak ?? '0';
   document.getElementById('stat-best-pace').textContent = stats.best_pace || '—';
   document.getElementById('stat-week').textContent = stats.week_km ?? '0';
+
+  const bestRepCard = document.getElementById('best-rep-card');
+  if (stats.best_rep) {
+    bestRepCard.style.display = 'flex';
+    document.getElementById('best-rep-val').textContent = formatSeconds(stats.best_rep.best_time);
+    document.getElementById('best-rep-dist').textContent = `${stats.best_rep.distance_m}m rep`;
+  } else {
+    bestRepCard.style.display = 'none';
+  }
 
   const est = stats.estimates || {};
   document.getElementById('perf-100m').textContent = fmtTime(est['100m']);
@@ -1364,12 +1468,134 @@ async function saveSession() {
   });
 
   if (res.ok) {
+    const data = await res.json();
     closeModal();
-    await loadDashboard();
+    if (['intervals', 'technique'].includes(type)) {
+      openRepsModal(data.id);
+    } else {
+      await loadDashboard();
+    }
   } else {
     const err = await res.json();
     alert(err.error || 'Error saving session');
   }
+}
+
+// ─── REPS MODAL ──────────────────────────────────────────────
+function openRepsModal(runId) {
+  currentRepRunId = runId;
+  currentRepDist = 100;
+  currentRepCount = 6;
+  document.getElementById('rep-count').value = 6;
+  document.getElementById('rep-inputs').innerHTML = '';
+  document.getElementById('btn-save-reps').style.display = 'none';
+  document.querySelectorAll('#rep-dist-selector .type-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('#rep-dist-selector .type-btn[data-dist="100"]').classList.add('active');
+  document.getElementById('modal-reps').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRepsModal() {
+  document.getElementById('modal-reps').style.display = 'none';
+  document.body.style.overflow = '';
+  loadDashboard();
+}
+
+function overlayCloseReps(e) {
+  if (e.target.id === 'modal-reps') closeRepsModal();
+}
+
+function selectRepDist(btn) {
+  document.querySelectorAll('#rep-dist-selector .type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function generateRepInputs() {
+  currentRepCount = parseInt(document.getElementById('rep-count').value) || 6;
+  currentRepDist = parseInt(document.querySelector('#rep-dist-selector .type-btn.active')?.dataset.dist || '100');
+  const container = document.getElementById('rep-inputs');
+  container.innerHTML = Array.from({length: currentRepCount}, (_, i) => `
+    <div class="rep-row">
+      <span class="rep-label">Rep ${i + 1} &mdash; ${currentRepDist}m</span>
+      <div class="time-row" style="flex:0;gap:6px">
+        <input type="number" id="rep-min-${i}" placeholder="00" min="0" max="59" style="width:52px">
+        <span>m</span>
+        <input type="number" id="rep-sec-${i}" placeholder="00" min="0" max="59" style="width:52px">
+        <span>s</span>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('btn-save-reps').style.display = 'block';
+}
+
+async function saveReps() {
+  const reps = Array.from({length: currentRepCount}, (_, i) => ({
+    rep_number: i + 1,
+    distance_m: currentRepDist,
+    time_seconds: (parseInt(document.getElementById(`rep-min-${i}`)?.value) || 0) * 60 +
+                  (parseInt(document.getElementById(`rep-sec-${i}`)?.value) || 0)
+  })).filter(r => r.time_seconds > 0);
+
+  await fetch(`/api/runs/${currentRepRunId}/reps`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({reps})
+  });
+  closeRepsModal();
+  showToast('Reps saved');
+}
+
+// ─── GOALS (dynamic) ─────────────────────────────────────────
+async function loadGoals() {
+  try {
+    const res = await fetch(`/api/user/${currentUser.id}/goals`);
+    const data = await res.json();
+    renderGoalsTable(data);
+  } catch(e) {
+    document.getElementById('goals-table').innerHTML =
+      '<div class="empty-state">Failed to load goals</div>';
+  }
+}
+
+function renderGoalsTable(data) {
+  const distances = ['100m','400m','800m','1mile','5km','10km'];
+  const labels = {'100m':'100m','400m':'400m','800m':'800m','1mile':'1 Mile','5km':'5 km','10km':'10 km'};
+  const container = document.getElementById('goals-table');
+
+  container.innerHTML = distances.map(dist => {
+    const standard = data.standards?.[dist];
+    const goal     = data.goals?.[dist]?.target;
+    const best     = data.bests?.[dist];
+    const basis    = data.goals?.[dist]?.basis;
+
+    let bestClass = '';
+    if (best && goal) {
+      if (best <= goal)        bestClass = 'good';
+      else if (best <= goal * 1.1) bestClass = 'close';
+      else                    bestClass = 'behind';
+    }
+
+    return `
+      <div class="goal-row">
+        <div class="goal-dist">${labels[dist]}</div>
+        <div class="goal-col"><div class="goal-col-value">${standard ? formatSeconds(standard) : '—'}</div></div>
+        <div class="goal-col"><div class="goal-col-value">${goal ? formatSeconds(goal) : '—'}</div></div>
+        <div class="goal-col"><div class="goal-col-value ${bestClass}">${best ? formatSeconds(best) : 'No data'}</div></div>
+      </div>`;
+  }).join('');
+
+  const hasAiGoals = Object.values(data.goals || {}).some(g => g.basis === 'ai_calculated');
+  document.getElementById('goals-note').textContent = hasAiGoals
+    ? 'Goals calculated from your recent performance.'
+    : 'Goals based on World Athletics standards for your profile. Train to unlock personalized goals.';
+}
+
+// ─── TOAST ───────────────────────────────────────────────────
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
 }
 
 // ─── NAVIGATION ───────────────────────────────────────────────
@@ -1383,6 +1609,16 @@ function showTab(name) {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────
+function formatSeconds(seconds) {
+  if (!seconds) return '—';
+  const s = parseInt(seconds);
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m < 60) return `${m}:${String(rem).padStart(2,'0')}`;
+  const h = Math.floor(m / 60);
+  return `${h}:${String(m % 60).padStart(2,'0')}:${String(rem).padStart(2,'0')}`;
+}
+
 function fmtTime(seconds) {
   if (!seconds) return '—';
   const s = parseInt(seconds);
@@ -1406,5 +1642,39 @@ function fmtShortDate(d) {
 // ─── START ────────────────────────────────────────────────────
 init();
 </script>
+
+<!-- REPS MODAL -->
+<div class="modal-overlay" id="modal-reps" style="display:none" onclick="overlayCloseReps(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Track Repetitions</span>
+      <button class="btn-secondary" style="padding:6px 14px;font-size:12px" onclick="closeRepsModal()">Skip</button>
+    </div>
+
+    <div class="reps-config">
+      <div class="field-group">
+        <label>Distance per rep</label>
+        <div class="type-selector" id="rep-dist-selector">
+          <button class="type-btn active" data-dist="100" onclick="selectRepDist(this)">100m</button>
+          <button class="type-btn" data-dist="200" onclick="selectRepDist(this)">200m</button>
+          <button class="type-btn" data-dist="400" onclick="selectRepDist(this)">400m</button>
+          <button class="type-btn" data-dist="800" onclick="selectRepDist(this)">800m</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Number of reps</label>
+        <input type="number" id="rep-count" placeholder="6" min="1" max="20" value="6">
+      </div>
+      <button class="btn-secondary" onclick="generateRepInputs()" style="width:100%">Generate</button>
+    </div>
+
+    <div id="rep-inputs" style="margin-top:16px"></div>
+    <button class="btn-primary" id="btn-save-reps" style="display:none;margin-top:8px" onclick="saveReps()">Save Reps</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
 </body>
 </html>
