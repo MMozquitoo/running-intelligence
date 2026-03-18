@@ -1,8 +1,11 @@
 import os
+import json
+import re
 from flask import Flask, request, jsonify, render_template
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, date, timedelta
+import anthropic
 
 _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 app = Flask(__name__,
@@ -10,6 +13,7 @@ app = Flask(__name__,
             static_folder=os.path.join(_root, "static"))
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 # ─────────────────────────────────────────
 # DB CONNECTION
@@ -25,14 +29,15 @@ def init_db():
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id    SERIAL PRIMARY KEY,
-            name  TEXT NOT NULL UNIQUE,
-            emoji TEXT NOT NULL
+            id         SERIAL PRIMARY KEY,
+            name       TEXT NOT NULL UNIQUE,
+            race_date  TEXT,
+            profile_data JSONB
         )
     """)
 
-    for name, emoji in [("Cristian", "🏃"), ("Adrien", "⚡"), ("Laurine", "🌟")]:
-        c.execute("INSERT INTO users (name, emoji) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING", (name, emoji))
+    for name in ["Cristian", "Adrien"]:
+        c.execute("INSERT INTO users (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (name,))
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS runs (
@@ -42,7 +47,7 @@ def init_db():
             type             TEXT NOT NULL DEFAULT 'run',
             distance         REAL NOT NULL DEFAULT 0,
             time_seconds     INTEGER NOT NULL DEFAULT 0,
-            pace             TEXT NOT NULL DEFAULT '—',
+            pace             TEXT NOT NULL DEFAULT '-',
             effort           INTEGER NOT NULL DEFAULT 5,
             notes            TEXT,
             interval_dist    REAL,
@@ -67,14 +72,37 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS training_sessions (
+            id           SERIAL PRIMARY KEY,
+            user_id      INTEGER REFERENCES users(id),
+            created_at   TIMESTAMP DEFAULT NOW(),
+            plan         JSONB,
+            template_key TEXT,
+            status       TEXT DEFAULT 'pending'
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS session_results (
+            id             SERIAL PRIMARY KEY,
+            session_id     INTEGER REFERENCES training_sessions(id),
+            exercise_index INTEGER,
+            label          TEXT,
+            time_seconds   INTEGER,
+            notes          TEXT
+        )
+    """)
+
+    # Migrations for existing deployments
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS race_date TEXT")
+    c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_data JSONB")
 
     conn.commit()
     c.close()
     conn.close()
 
 
-# Init on cold start
 try:
     init_db()
 except Exception as e:
@@ -98,10 +126,23 @@ def index():
 def api_users():
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT * FROM users ORDER BY id")
+    c.execute("SELECT id, name, race_date, profile_data FROM users ORDER BY id")
     rows = c.fetchall()
     c.close(); conn.close()
     return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/user/<int:user_id>", methods=["DELETE"])
+def api_delete_user(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM session_results WHERE session_id IN (SELECT id FROM training_sessions WHERE user_id = %s)", (user_id,))
+    c.execute("DELETE FROM training_sessions WHERE user_id = %s", (user_id,))
+    c.execute("DELETE FROM runs WHERE user_id = %s", (user_id,))
+    c.execute("DELETE FROM cooper_tests WHERE user_id = %s", (user_id,))
+    c.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    conn.commit(); c.close(); conn.close()
+    return jsonify({"message": "Deleted"})
 
 
 # ─────────────────────────────────────────
@@ -109,7 +150,7 @@ def api_users():
 # ─────────────────────────────────────────
 
 def _pace_to_seconds(pace_str):
-    if not pace_str or pace_str == "—":
+    if not pace_str or pace_str == "-":
         return None
     try:
         parts = pace_str.split(":")
@@ -126,7 +167,6 @@ def api_get_runs(user_id):
     rows = [dict(r) for r in c.fetchall()]
     c.close(); conn.close()
 
-    # Interval pace progression: compare each intervals session to the previous one
     interval_rows = [(i, r) for i, r in enumerate(rows)
                      if r["type"] == "intervals" and r.get("interval_pace")]
     for j, (i, r) in enumerate(interval_rows):
@@ -136,9 +176,9 @@ def api_get_runs(user_id):
             prev_s = _pace_to_seconds(prev["interval_pace"])
             if curr_s and prev_s:
                 if curr_s < prev_s:
-                    rows[i]["interval_trend"] = "up"    # faster = better
+                    rows[i]["interval_trend"] = "up"
                 elif curr_s > prev_s:
-                    rows[i]["interval_trend"] = "down"  # slower
+                    rows[i]["interval_trend"] = "down"
                 else:
                     rows[i]["interval_trend"] = "equal"
 
@@ -154,7 +194,7 @@ def api_add_run():
 
     distance = float(d.get("distance", 0))
     time_sec = int(d.get("time_seconds", 0))
-    pace = "—"
+    pace = "-"
     if distance > 0 and time_sec > 0:
         ps = time_sec / distance
         pace = f"{int(ps//60)}:{int(ps%60):02d}"
@@ -168,7 +208,7 @@ def api_add_run():
         RETURNING id
     """, (
         int(d["user_id"]), d["date"], d["type"], distance, time_sec, pace,
-        int(d["effort"]), d.get("notes",""),
+        int(d["effort"]), d.get("notes", ""),
         d.get("interval_dist"), d.get("interval_reps"), d.get("interval_pace"),
         d.get("circuit_rounds"), d.get("circuit_details"), d.get("technique_drills")
     ))
@@ -190,25 +230,32 @@ def api_delete_run(run_id):
 # STATS
 # ─────────────────────────────────────────
 
-@app.route("/api/stats/<int:user_id>")
-def api_stats(user_id):
+def _build_stats(user_id):
     conn = get_conn()
     c = conn.cursor()
 
     c.execute("SELECT * FROM runs WHERE user_id = %s ORDER BY date DESC", (user_id,))
     runs = [dict(r) for r in c.fetchall()]
 
-    c.execute("SELECT race_date FROM users WHERE id = %s", (user_id,))
+    c.execute("SELECT race_date, profile_data FROM users WHERE id = %s", (user_id,))
     user_row = c.fetchone()
 
     c.execute("SELECT vo2max FROM cooper_tests WHERE user_id = %s ORDER BY date DESC LIMIT 1", (user_id,))
     cooper_row = c.fetchone()
 
+    c.execute("""
+        SELECT ts.id, ts.created_at, ts.status, ts.plan
+        FROM training_sessions ts
+        WHERE ts.user_id = %s
+        ORDER BY ts.created_at DESC
+        LIMIT 3
+    """, (user_id,))
+    recent_sessions = [dict(r) for r in c.fetchall()]
+
     c.close(); conn.close()
 
     today = date.today()
 
-    # ── Streak ───────────────────────────────
     date_set = set(datetime.strptime(r["date"], "%Y-%m-%d").date() for r in runs)
     check = today if today in date_set else today - timedelta(days=1)
     streak = 0
@@ -216,7 +263,6 @@ def api_stats(user_id):
         streak += 1
         check -= timedelta(days=1)
 
-    # ── Last session ─────────────────────────
     last_session_days = None
     last_session_alert = False
     if runs:
@@ -224,12 +270,11 @@ def api_stats(user_id):
         last_session_days = (today - last_date).days
         last_session_alert = last_session_days > 5
 
-    # ── This week vs last week ────────────────
-    week_start = today - timedelta(days=today.weekday())   # Monday
+    week_start = today - timedelta(days=today.weekday())
     prev_week_start = week_start - timedelta(days=7)
 
-    week_sessions = 0;  week_km = 0.0
-    prev_week_sessions = 0;  prev_week_km = 0.0
+    week_sessions = 0; week_km = 0.0
+    prev_week_sessions = 0; prev_week_km = 0.0
     for r in runs:
         rd = datetime.strptime(r["date"], "%Y-%m-%d").date()
         if rd >= week_start:
@@ -241,29 +286,39 @@ def api_stats(user_id):
     week_km = round(week_km, 2)
     prev_week_km = round(prev_week_km, 2)
 
-    # ── Classic stats ─────────────────────────
     running = [r for r in runs if r["distance"] > 0]
-    total_km   = round(sum(r["distance"] for r in running), 2)
+    total_km = round(sum(r["distance"] for r in running), 2)
     total_runs = len(runs)
-    avg_pace = best_pace = "—"
+    avg_pace = best_pace = "-"
     proj_10k = None
 
     timed = [r for r in running if r["time_seconds"] > 0]
     if timed:
-        total_sec  = sum(r["time_seconds"] for r in timed)
-        total_dist = sum(r["distance"]     for r in timed)
+        total_sec = sum(r["time_seconds"] for r in timed)
+        total_dist = sum(r["distance"] for r in timed)
         avg_s = total_sec / total_dist if total_dist > 0 else 0
         avg_pace = f"{int(avg_s//60)}:{int(avg_s%60):02d}"
         best = min(timed, key=lambda r: r["time_seconds"] / r["distance"])
         best_pace = best["pace"]
         parts = best_pace.split(":")
-        pace_s = int(parts[0])*60 + int(parts[1])
+        pace_s = int(parts[0]) * 60 + int(parts[1])
         total_p = pace_s * 10
         proj_10k = f"{total_p//60}:{total_p%60:02d}"
 
-    # ── Race countdown ────────────────────────
+    # Last 5 sessions avg pace
+    last5 = [r for r in timed[:5]]
+    avg_pace_last5 = "-"
+    if last5:
+        s5 = sum(r["time_seconds"] for r in last5)
+        d5 = sum(r["distance"] for r in last5)
+        if d5 > 0:
+            a5 = s5 / d5
+            avg_pace_last5 = f"{int(a5//60)}:{int(a5%60):02d}"
+
     race_date_str = user_row["race_date"] if user_row else None
     days_to_race = None
+    total_planned = None
+    completed_pct = None
     if race_date_str:
         try:
             race_dt = datetime.strptime(race_date_str, "%Y-%m-%d").date()
@@ -271,16 +326,42 @@ def api_stats(user_id):
         except Exception:
             pass
 
-    # Progress bar: VO2max toward target 52 (Good level)
     race_progress = None
     if cooper_row:
         vo2max = float(cooper_row["vo2max"])
         race_progress = min(100, max(0, int((vo2max / 52) * 100)))
 
-    return jsonify({
-        "total_km": total_km, "total_runs": total_runs,
-        "avg_pace": avg_pace, "best_pace": best_pace,
-        "weekly_km": week_km, "proj_10k": proj_10k,
+    # Completed sessions pct: completed / total training_sessions
+    if days_to_race is not None and days_to_race > 0:
+        conn2 = get_conn()
+        c2 = conn2.cursor()
+        c2.execute("SELECT COUNT(*) as total FROM training_sessions WHERE user_id = %s", (user_id,))
+        total_row = c2.fetchone()
+        c2.execute("SELECT COUNT(*) as done FROM training_sessions WHERE user_id = %s AND status = 'completed'", (user_id,))
+        done_row = c2.fetchone()
+        c2.close(); conn2.close()
+        total_planned = total_row["total"] if total_row else 0
+        done = done_row["done"] if done_row else 0
+        completed_pct = int((done / total_planned * 100) if total_planned > 0 else 0)
+
+    # Format recent sessions for display
+    recent_formatted = []
+    for s in recent_sessions:
+        recent_formatted.append({
+            "id": s["id"],
+            "created_at": s["created_at"].strftime("%Y-%m-%d") if s["created_at"] else None,
+            "status": s["status"],
+            "exercise_count": len(s["plan"]) if s["plan"] else 0,
+        })
+
+    return {
+        "total_km": total_km,
+        "total_runs": total_runs,
+        "avg_pace": avg_pace,
+        "best_pace": best_pace,
+        "avg_pace_last5": avg_pace_last5,
+        "weekly_km": week_km,
+        "proj_10k": proj_10k,
         "streak": streak,
         "last_session_days": last_session_days,
         "last_session_alert": last_session_alert,
@@ -291,7 +372,20 @@ def api_stats(user_id):
         "race_date": race_date_str,
         "days_to_race": days_to_race,
         "race_progress": race_progress,
-    })
+        "total_planned": total_planned,
+        "completed_pct": completed_pct,
+        "recent_sessions": recent_formatted,
+    }
+
+
+@app.route("/api/stats/<int:user_id>")
+def api_stats(user_id):
+    return jsonify(_build_stats(user_id))
+
+
+@app.route("/api/user/<int:user_id>/stats")
+def api_user_stats(user_id):
+    return jsonify(_build_stats(user_id))
 
 
 # ─────────────────────────────────────────
@@ -299,10 +393,8 @@ def api_stats(user_id):
 # ─────────────────────────────────────────
 
 def _cooper_calc(distance_m):
-    # VO2max — Cooper formula (ml/kg/min)
     vo2max = round((distance_m - 504.9) / 44.73, 1)
 
-    # Fitness level
     if vo2max < 28:   level = "Very Poor"
     elif vo2max < 34: level = "Poor"
     elif vo2max < 42: level = "Average"
@@ -310,20 +402,17 @@ def _cooper_calc(distance_m):
     elif vo2max < 60: level = "Excellent"
     else:             level = "Superior"
 
-    # 10k projection — Daniels VDOT formula
-    # pace_per_km (min) = 29.54 / vo2max^0.5765
-    # Validated: VO2max 42 → ~58 min, VO2max 52 → ~47 min, VO2max 60 → ~41 min
     try:
         pace_min_km = 29.54 / (vo2max ** 0.5765)
-        total_min   = pace_min_km * 10
-        mins        = int(total_min)
-        secs        = int(round((total_min - mins) * 60))
+        total_min = pace_min_km * 10
+        mins = int(total_min)
+        secs = int(round((total_min - mins) * 60))
         if secs == 60:
             mins += 1
-            secs  = 0
+            secs = 0
         proj_10k = f"{mins}:{secs:02d}"
     except Exception:
-        proj_10k = "—"
+        proj_10k = "-"
 
     return vo2max, level, proj_10k
 
@@ -350,7 +439,7 @@ def api_add_cooper():
     c.execute("""
         INSERT INTO cooper_tests (user_id, date, distance_m, vo2max, fitness_level, proj_10k, notes)
         VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id
-    """, (int(d["user_id"]), d["date"], float(d["distance_m"]), vo2max, level, proj_10k, d.get("notes","")))
+    """, (int(d["user_id"]), d["date"], float(d["distance_m"]), vo2max, level, proj_10k, d.get("notes", "")))
     new_id = c.fetchone()["id"]
     conn.commit(); c.close(); conn.close()
     return jsonify({"id": new_id, "vo2max": vo2max, "fitness_level": level, "proj_10k": proj_10k}), 201
@@ -378,3 +467,177 @@ def api_set_race_date(user_id):
     c.execute("UPDATE users SET race_date = %s WHERE id = %s", (race_date, user_id))
     conn.commit(); c.close(); conn.close()
     return jsonify({"race_date": race_date})
+
+
+# ─────────────────────────────────────────
+# AI CHAT
+# ─────────────────────────────────────────
+
+def _extract_plan(text):
+    """Extract JSON plan from AI response text."""
+    match = re.search(r'\{"plan"\s*:\s*\[.*?\]\}', text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except Exception:
+            pass
+    return None
+
+
+def _template_key(plan):
+    """Generate a deterministic key for a plan structure."""
+    if not plan:
+        return None
+    labels = [item.get("type", "") for item in plan]
+    return "_".join(labels)
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    d = request.get_json()
+    user_id = d.get("user_id")
+    message = d.get("message", "").strip()
+
+    if not user_id or not message:
+        return jsonify({"error": "user_id and message required"}), 400
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("SELECT name, profile_data FROM users WHERE id = %s", (user_id,))
+    user_row = c.fetchone()
+    if not user_row:
+        c.close(); conn.close()
+        return jsonify({"error": "User not found"}), 404
+
+    profile_data = user_row["profile_data"] or {}
+    user_name = user_row["name"]
+
+    c.execute("""
+        SELECT date, type, distance, pace, effort, notes, interval_dist, interval_reps, interval_pace
+        FROM runs WHERE user_id = %s ORDER BY date DESC LIMIT 10
+    """, (user_id,))
+    recent_runs = [dict(r) for r in c.fetchall()]
+    c.close(); conn.close()
+
+    history_lines = []
+    for r in recent_runs:
+        line = f"{r['date']} | {r['type']}"
+        if r["distance"]:
+            line += f" | {r['distance']}km"
+        if r["pace"] and r["pace"] != "-":
+            line += f" | pace {r['pace']}/km"
+        if r["effort"]:
+            line += f" | RPE {r['effort']}"
+        history_lines.append(line)
+    history_str = "\n".join(history_lines) if history_lines else "No sessions recorded yet."
+
+    profile_str = json.dumps(profile_data) if profile_data else "No profile data yet."
+
+    system_prompt = f"""You are a professional running coach. No emojis. Concise, direct responses in the same language the athlete writes in.
+Athlete: {user_name}
+Profile: {profile_str}
+Recent training history:
+{history_str}
+
+When you generate a training plan, always append a JSON block at the very end of your response in exactly this format:
+{{"plan": [{{"label": "Warm-up", "type": "warmup"}}, {{"label": "Lap 1", "type": "lap"}}, ...]}}
+Valid types: warmup, lap, interval, rest, cooldown, series, drill.
+The rest of your response before the JSON can be plain text explanation.
+Do not use emojis anywhere in your response."""
+
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{"role": "user", "content": message}]
+        )
+        ai_text = response.content[0].text
+    except Exception as e:
+        return jsonify({"error": f"AI error: {str(e)}"}), 500
+
+    plan_json = _extract_plan(ai_text)
+    clean_text = ai_text
+    session_id = None
+
+    if plan_json and plan_json.get("plan"):
+        plan = plan_json["plan"]
+        t_key = _template_key(plan)
+        clean_text = re.sub(r'\{"plan"\s*:\s*\[.*?\]\}', '', ai_text, flags=re.DOTALL).strip()
+
+        conn2 = get_conn()
+        c2 = conn2.cursor()
+        c2.execute("""
+            INSERT INTO training_sessions (user_id, plan, template_key, status)
+            VALUES (%s, %s, %s, 'pending') RETURNING id
+        """, (user_id, json.dumps(plan), t_key))
+        session_id = c2.fetchone()["id"]
+        conn2.commit(); c2.close(); conn2.close()
+
+    return jsonify({
+        "text": clean_text,
+        "plan": plan_json["plan"] if plan_json else None,
+        "session_id": session_id,
+    })
+
+
+# ─────────────────────────────────────────
+# SESSION RESULTS
+# ─────────────────────────────────────────
+
+@app.route("/api/session-results", methods=["POST"])
+def api_session_results():
+    d = request.get_json()
+    session_id = d.get("session_id")
+    results = d.get("results", [])
+
+    if not session_id:
+        return jsonify({"error": "session_id required"}), 400
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    for i, r in enumerate(results):
+        time_str = r.get("time", "")
+        time_seconds = None
+        if time_str:
+            try:
+                parts = time_str.split(":")
+                if len(parts) == 2:
+                    time_seconds = int(parts[0]) * 60 + int(parts[1])
+                elif len(parts) == 3:
+                    time_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            except Exception:
+                pass
+
+        c.execute("""
+            INSERT INTO session_results (session_id, exercise_index, label, time_seconds, notes)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (session_id, i, r.get("label", ""), time_seconds, r.get("notes", "")))
+
+    c.execute("UPDATE training_sessions SET status = 'completed' WHERE id = %s", (session_id,))
+    conn.commit(); c.close(); conn.close()
+
+    return jsonify({"message": "Results saved", "session_id": session_id}), 201
+
+
+@app.route("/api/training-sessions/<int:user_id>")
+def api_get_training_sessions(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        SELECT ts.id, ts.created_at, ts.plan, ts.template_key, ts.status
+        FROM training_sessions ts
+        WHERE ts.user_id = %s
+        ORDER BY ts.created_at DESC
+        LIMIT 20
+    """, (user_id,))
+    rows = []
+    for r in c.fetchall():
+        row = dict(r)
+        row["created_at"] = row["created_at"].strftime("%Y-%m-%d %H:%M") if row["created_at"] else None
+        rows.append(row)
+    c.close(); conn.close()
+    return jsonify(rows)
