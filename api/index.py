@@ -602,72 +602,76 @@ def api_user_stats(user_id):
 
 @app.route("/api/user/<int:user_id>/activity-stats")
 def activity_stats(user_id):
-    conn = get_conn()
-    c = conn.cursor()
+    try:
+        conn = get_conn()
+        c = conn.cursor()
 
-    c.execute("""
-        SELECT date, type, distance, time_seconds, effort, pace
-        FROM runs WHERE user_id = %s
-        AND date >= CURRENT_DATE - INTERVAL '90 days'
-        ORDER BY date ASC
-    """, (user_id,))
-    runs = [dict(r) for r in c.fetchall()]
+        c.execute("""
+            SELECT date, type, distance, time_seconds, effort, pace
+            FROM runs WHERE user_id = %s
+            AND date >= CURRENT_DATE - INTERVAL '90 days'
+            ORDER BY date ASC
+        """, (user_id,))
+        runs = [dict(r) for r in c.fetchall()]
 
-    c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
-    row = c.fetchone()
-    profile_data = (row["profile_data"] or {}) if row else {}
-    weight_kg = float(profile_data.get("weight_kg", 70))
+        c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
+        row = c.fetchone()
+        profile_data = (row["profile_data"] or {}) if row else {}
+        weight_kg = float(profile_data.get("weight_kg", 70))
 
-    c.execute("""
-        SELECT
-            date_trunc('week', date::date) as week,
-            COALESCE(SUM(distance), 0) as km,
-            COUNT(*) as sessions,
-            COALESCE(AVG(effort), 0) as avg_effort,
-            COALESCE(SUM(time_seconds), 0) as total_time
-        FROM runs WHERE user_id = %s
-        AND date >= CURRENT_DATE - INTERVAL '84 days'
-        GROUP BY date_trunc('week', date::date) ORDER BY week ASC
-    """, (user_id,))
-    weekly = [dict(r) for r in c.fetchall()]
+        c.execute("""
+            SELECT
+                date_trunc('week', date::date) as week,
+                COALESCE(SUM(distance), 0) as km,
+                COUNT(*) as sessions,
+                COALESCE(AVG(effort), 0) as avg_effort,
+                COALESCE(SUM(time_seconds), 0) as total_time
+            FROM runs WHERE user_id = %s
+            AND date >= CURRENT_DATE - INTERVAL '84 days'
+            GROUP BY date_trunc('week', date::date)
+            ORDER BY date_trunc('week', date::date) ASC
+        """, (user_id,))
+        weekly = [dict(r) for r in c.fetchall()]
 
-    for w in weekly:
-        hours = float(w["total_time"]) / 3600
-        # MET ~8 for running, calories = MET * weight_kg * hours
-        w["calories"] = round(8 * weight_kg * hours)
-        w["week"] = str(w["week"])[:10]
+        for w in weekly:
+            hours = float(w["total_time"]) / 3600
+            w["calories"] = round(8 * weight_kg * hours)
+            w["week"] = str(w["week"])[:10]
 
-    c.execute("""
-        SELECT rr.distance_m,
-               MIN(rr.time_seconds) as best,
-               AVG(rr.time_seconds) as avg,
-               COUNT(*) as count
-        FROM run_reps rr
-        JOIN runs r ON r.id = rr.run_id
-        WHERE r.user_id = %s AND rr.time_seconds > 0
-        GROUP BY rr.distance_m
-        ORDER BY rr.distance_m
-    """, (user_id,))
-    rep_stats = [dict(r) for r in c.fetchall()]
+        c.execute("""
+            SELECT rr.distance_m,
+                   MIN(rr.time_seconds) as best,
+                   AVG(rr.time_seconds) as avg,
+                   COUNT(*) as count
+            FROM run_reps rr
+            JOIN runs r ON r.id = rr.run_id
+            WHERE r.user_id = %s AND rr.time_seconds > 0
+            GROUP BY rr.distance_m
+            ORDER BY rr.distance_m
+        """, (user_id,))
+        rep_stats = [dict(r) for r in c.fetchall()]
 
-    c.execute("""
-        SELECT
-            date_trunc('week', date::date) as week,
-            COALESCE(SUM(effort * time_seconds / 60.0), 0) as load
-        FROM runs WHERE user_id = %s
-        AND date >= CURRENT_DATE - INTERVAL '84 days'
-        AND effort IS NOT NULL AND time_seconds IS NOT NULL
-        GROUP BY week ORDER BY week ASC
-    """, (user_id,))
-    load_by_week = [{"week": str(r["week"])[:10], "load": round(float(r["load"]))} for r in c.fetchall()]
+        c.execute("""
+            SELECT
+                date_trunc('week', date::date) as week,
+                COALESCE(SUM(effort * time_seconds / 60.0), 0) as load
+            FROM runs WHERE user_id = %s
+            AND date >= CURRENT_DATE - INTERVAL '84 days'
+            GROUP BY date_trunc('week', date::date)
+            ORDER BY date_trunc('week', date::date) ASC
+        """, (user_id,))
+        load_by_week = [{"week": str(r["week"])[:10], "load": round(float(r["load"]))} for r in c.fetchall()]
 
-    c.close(); conn.close()
-    return jsonify({
-        "runs": runs,
-        "weekly": weekly,
-        "rep_stats": rep_stats,
-        "load_by_week": load_by_week,
-    })
+        c.close(); conn.close()
+        return jsonify({
+            "runs": runs,
+            "weekly": weekly,
+            "rep_stats": rep_stats,
+            "load_by_week": load_by_week,
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 
 # ─────────────────────────────────────────
