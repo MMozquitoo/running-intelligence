@@ -890,6 +890,69 @@
       letter-spacing: 0.04em;
       padding: 32px 0;
     }
+    /* ── PROFILE BOTTOM SHEET ── */
+    .sheet-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 300; backdrop-filter: blur(4px);
+    }
+    .profile-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      border-radius: 20px 20px 0 0; padding: 12px 20px 40px;
+      z-index: 400; max-height: 85vh; overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .profile-sheet.open { transform: translateY(0); }
+    .sheet-handle {
+      width: 36px; height: 4px; background: var(--border);
+      border-radius: 2px; margin: 0 auto 20px;
+    }
+    .sheet-user-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+    .sheet-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--surface-2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 600;
+    }
+    .sheet-name { font-size: 18px; font-weight: 600; }
+    .sheet-level { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+    .sheet-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 24px; }
+    .sheet-stat { background: var(--surface-2); border-radius: 10px; padding: 12px 8px; text-align: center; }
+    .sheet-stat-val { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+    .sheet-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .sheet-section-title {
+      font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 10px; margin-top: 4px;
+    }
+    .sheet-run-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .sheet-run-date { color: var(--text-muted); }
+    .sheet-run-detail { color: var(--text-secondary); }
+    .sheet-run-stat { font-weight: 500; }
+    .sheet-user-btn {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      padding: 12px 0; border: none; background: none; cursor: pointer;
+      border-bottom: 1px solid var(--border); text-align: left;
+    }
+    .sheet-user-initial {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--surface-2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 600; color: var(--text); flex-shrink: 0;
+    }
+    .sheet-user-info { flex: 1; }
+    .sheet-user-name { font-size: 14px; font-weight: 500; color: var(--text); }
+    .sheet-user-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .sheet-user-btn.current .sheet-user-initial { border-color: var(--text); }
+    .sheet-close-btn {
+      width: 100%; margin-top: 20px; padding: 14px; border-radius: 12px;
+      border: 1px solid var(--border); background: none; color: var(--text-secondary);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+
     /* ── HAMBURGER MENU ── */
     .hamburger-menu { display: none; position: relative; }
 
@@ -1441,7 +1504,10 @@ async function loadDashboard() {
 
 // ─── HOME ─────────────────────────────────────────────────────
 function renderHome() {
-  document.getElementById('home-username').textContent = currentUser.name;
+  const usernameEl = document.getElementById('home-username');
+  usernameEl.textContent = currentUser.name;
+  usernameEl.style.cursor = 'pointer';
+  usernameEl.onclick = openProfileSheet;
 
   const pill = document.getElementById('home-race');
   if (stats.days_to_race != null) {
@@ -2241,6 +2307,64 @@ async function deleteRun(runId) {
   showToast('Session deleted');
 }
 
+// ─── PROFILE SHEET ───────────────────────────────────────────
+async function openProfileSheet() {
+  const sheet = document.getElementById('profile-sheet');
+  const overlay = document.getElementById('sheet-overlay');
+
+  const [statsData, runsData, usersData] = await Promise.all([
+    fetch(`/api/user/${currentUser.id}/stats`).then(r => r.json()),
+    fetch(`/api/user/${currentUser.id}/runs`).then(r => r.json()),
+    fetch('/api/users').then(r => r.json())
+  ]);
+
+  document.getElementById('sheet-avatar').textContent = currentUser.name[0].toUpperCase();
+  document.getElementById('sheet-name').textContent = currentUser.name;
+  const profile = statsData.profile_data || {};
+  const levelMap = { beginner: 'Beginner', amateur: 'Amateur', good: 'Advanced' };
+  document.getElementById('sheet-level').textContent = levelMap[profile.level] || 'Runner';
+
+  document.getElementById('sheet-km').textContent = statsData.total_km ?? 0;
+  document.getElementById('sheet-sessions').textContent = statsData.total_runs ?? 0;
+  document.getElementById('sheet-streak').textContent = statsData.streak ?? 0;
+
+  const historyEl = document.getElementById('sheet-history');
+  const recent = runsData.slice(0, 5);
+  historyEl.innerHTML = recent.length > 0
+    ? recent.map(r => `
+        <div class="sheet-run-row">
+          <span class="sheet-run-date">${r.date}</span>
+          <span class="sheet-run-detail">${r.type}</span>
+          <span class="sheet-run-stat">${r.distance ? r.distance + ' km' : r.time_seconds ? Math.round(r.time_seconds / 60) + ' min' : '—'}</span>
+        </div>`).join('')
+    : '<div class="empty-state" style="padding:12px 0">No sessions yet</div>';
+
+  document.getElementById('sheet-users').innerHTML = usersData.map(u => `
+    <button class="sheet-user-btn ${u.id === currentUser.id ? 'current' : ''}"
+            onclick="selectUserFromSheet(${u.id}, '${u.name}')">
+      <div class="sheet-user-initial">${u.name[0].toUpperCase()}</div>
+      <div class="sheet-user-info">
+        <div class="sheet-user-name">${u.name}</div>
+        <div class="sheet-user-meta">${u.id === currentUser.id ? 'Current user' : 'Tap to switch'}</div>
+      </div>
+    </button>`).join('');
+
+  overlay.style.display = 'block';
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closeProfileSheet() {
+  const sheet = document.getElementById('profile-sheet');
+  const overlay = document.getElementById('sheet-overlay');
+  sheet.classList.remove('open');
+  setTimeout(() => { overlay.style.display = 'none'; }, 300);
+}
+
+function selectUserFromSheet(userId) {
+  closeProfileSheet();
+  setTimeout(() => selectUser(userId), 300);
+}
+
 // ─── TOAST ───────────────────────────────────────────────────
 function showToast(msg, isError = false) {
   const el = document.getElementById('toast');
@@ -2349,6 +2473,43 @@ init();
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- PROFILE SHEET -->
+<div class="sheet-overlay" id="sheet-overlay" onclick="closeProfileSheet()" style="display:none"></div>
+<div class="profile-sheet" id="profile-sheet">
+  <div class="sheet-handle"></div>
+
+  <div class="sheet-user-header">
+    <div class="sheet-avatar" id="sheet-avatar">C</div>
+    <div>
+      <div class="sheet-name" id="sheet-name">Cristian</div>
+      <div class="sheet-level" id="sheet-level">Beginner</div>
+    </div>
+  </div>
+
+  <div class="sheet-stats-row">
+    <div class="sheet-stat">
+      <div class="sheet-stat-val" id="sheet-km">0</div>
+      <div class="sheet-stat-label">Total KM</div>
+    </div>
+    <div class="sheet-stat">
+      <div class="sheet-stat-val" id="sheet-sessions">0</div>
+      <div class="sheet-stat-label">Sessions</div>
+    </div>
+    <div class="sheet-stat">
+      <div class="sheet-stat-val" id="sheet-streak">0</div>
+      <div class="sheet-stat-label">Streak</div>
+    </div>
+  </div>
+
+  <div class="sheet-section-title">Recent Sessions</div>
+  <div id="sheet-history"></div>
+
+  <div class="sheet-section-title">Switch User</div>
+  <div id="sheet-users"></div>
+
+  <button class="sheet-close-btn" onclick="closeProfileSheet()">Close</button>
+</div>
 
 </body>
 </html>
