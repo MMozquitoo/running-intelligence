@@ -226,6 +226,7 @@ def init_db():
     # Migrations for existing deployments
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS race_date TEXT")
     c.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_data JSONB")
+    c.execute("ALTER TABLE run_reps ALTER COLUMN time_seconds TYPE REAL USING time_seconds::REAL")
 
     conn.commit()
     c.close()
@@ -415,6 +416,7 @@ def _build_stats(user_id):
 
     week_sessions = 0; week_km = 0.0
     prev_week_sessions = 0; prev_week_km = 0.0
+    total_load_sum = 0.0; week_load_sum = 0.0
     for r in runs:
         rd = datetime.strptime(r["date"], "%Y-%m-%d").date()
         if rd >= week_start:
@@ -423,8 +425,17 @@ def _build_stats(user_id):
         elif rd >= prev_week_start:
             prev_week_sessions += 1
             prev_week_km += r["distance"]
+        effort = r.get("effort") or 0
+        t_sec = r.get("time_seconds") or 0
+        if effort and t_sec:
+            load_pts = effort * t_sec / 60.0
+            total_load_sum += load_pts
+            if rd >= week_start:
+                week_load_sum += load_pts
     week_km = round(week_km, 2)
     prev_week_km = round(prev_week_km, 2)
+    total_load = round(total_load_sum)
+    week_load = round(week_load_sum)
 
     running = [r for r in runs if r["distance"] > 0]
     total_km = round(sum(r["distance"] for r in running), 2)
@@ -467,9 +478,18 @@ def _build_stats(user_id):
             pass
 
     race_progress = None
+    vo2max = None
     if cooper_row:
         vo2max = float(cooper_row["vo2max"])
         race_progress = min(100, max(0, int((vo2max / 52) * 100)))
+    if not vo2max and best_pace and best_pace != "-":
+        try:
+            parts = best_pace.split(":")
+            pace_secs = int(parts[0]) * 60 + int(parts[1])
+            speed_ms = 1000 / pace_secs
+            vo2max = round(speed_ms * 210.938 - 48.673, 1)
+        except Exception:
+            pass
 
     # Completed sessions pct: completed / total training_sessions
     if days_to_race is not None and days_to_race > 0:
@@ -493,6 +513,18 @@ def _build_stats(user_id):
             "status": s["status"],
             "exercise_count": len(s["plan"]) if s["plan"] else 0,
         })
+
+    # Derived metrics
+    total_laps = round(total_km * 1000 / 400, 1) if total_km else 0
+
+    recovery_hours = None
+    if runs:
+        last = runs[0]
+        effort = last.get("effort") or 0
+        t_sec = last.get("time_seconds") or 0
+        if effort and t_sec:
+            recovery_hours = round((effort / 10) * (t_sec / 3600) * 48)
+            recovery_hours = max(12, min(72, recovery_hours))
 
     # Advanced stats
     total_time_seconds = sum(r["time_seconds"] for r in runs)
@@ -550,6 +582,11 @@ def _build_stats(user_id):
         "calories_burned": calories_burned,
         "estimates": estimates,
         "best_rep": best_rep,
+        "total_laps": total_laps,
+        "total_load": total_load,
+        "week_load": week_load,
+        "recovery_hours": recovery_hours,
+        "vo2max": vo2max,
     }
 
 
@@ -561,6 +598,73 @@ def api_stats(user_id):
 @app.route("/api/user/<int:user_id>/stats")
 def api_user_stats(user_id):
     return jsonify(_build_stats(user_id))
+
+
+@app.route("/api/user/<int:user_id>/activity-stats")
+def activity_stats(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT date, type, distance, time_seconds, effort, pace
+        FROM runs WHERE user_id = %s
+        AND date >= CURRENT_DATE - INTERVAL '90 days'
+        ORDER BY date ASC
+    """, (user_id,))
+    runs = [dict(r) for r in c.fetchall()]
+
+    c.execute("""
+        SELECT
+            date_trunc('week', date::date) as week,
+            COALESCE(SUM(distance), 0) as km,
+            COUNT(*) as sessions,
+            COALESCE(AVG(effort), 0) as avg_effort
+        FROM runs WHERE user_id = %s
+        AND date >= CURRENT_DATE - INTERVAL '84 days'
+        GROUP BY week ORDER BY week ASC
+    """, (user_id,))
+    weekly = [dict(r) for r in c.fetchall()]
+
+    c.execute("SELECT profile_data FROM users WHERE id = %s", (user_id,))
+    row = c.fetchone()
+    profile_data = (row["profile_data"] or {}) if row else {}
+    weight_kg = profile_data.get("weight_kg", 70)
+
+    for w in weekly:
+        w["calories"] = 0
+        w["week"] = str(w["week"])[:10]
+
+    c.execute("""
+        SELECT rr.distance_m,
+               MIN(rr.time_seconds) as best,
+               AVG(rr.time_seconds) as avg,
+               COUNT(*) as count
+        FROM run_reps rr
+        JOIN runs r ON r.id = rr.run_id
+        WHERE r.user_id = %s AND rr.time_seconds > 0
+        GROUP BY rr.distance_m
+        ORDER BY rr.distance_m
+    """, (user_id,))
+    rep_stats = [dict(r) for r in c.fetchall()]
+
+    c.execute("""
+        SELECT
+            date_trunc('week', date::date) as week,
+            COALESCE(SUM(effort * time_seconds / 60.0), 0) as load
+        FROM runs WHERE user_id = %s
+        AND date >= CURRENT_DATE - INTERVAL '84 days'
+        AND effort IS NOT NULL AND time_seconds IS NOT NULL
+        GROUP BY week ORDER BY week ASC
+    """, (user_id,))
+    load_by_week = [{"week": str(r["week"])[:10], "load": round(float(r["load"]))} for r in c.fetchall()]
+
+    c.close(); conn.close()
+    return jsonify({
+        "runs": runs,
+        "weekly": weekly,
+        "rep_stats": rep_stats,
+        "load_by_week": load_by_week,
+    })
 
 
 # ─────────────────────────────────────────
@@ -1056,7 +1160,7 @@ def get_user_goals(user_id):
 
 @app.route("/api/parse-session", methods=["POST"])
 def parse_session():
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True) or {}
     text = data.get("text", "")
     user_id = data.get("user_id")
 

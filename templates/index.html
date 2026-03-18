@@ -829,6 +829,48 @@
     }
     .toast.show { opacity: 1; }
 
+    /* ── ACTIVITY PILLS ── */
+    .activity-pills {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+    }
+
+    .pill-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .pill-value { font-size: 18px; font-weight: 600; }
+    .pill-sub { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
+    .chart-unit {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 4px;
+    }
+
+    .chart-empty-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px 0;
+      display: none;
+    }
+
     /* ── STATES ── */
     .empty-state {
       text-align: center;
@@ -929,18 +971,58 @@
 
     <!-- ACTIVITY -->
     <div id="tab-activity" class="tab-content">
-      <div class="chart-card">
-        <div class="chart-title">Weekly Distance</div>
-        <canvas id="chart-weekly" height="160"></canvas>
+
+      <div class="activity-pills">
+        <div class="pill">
+          <div class="pill-label">Stadium Laps</div>
+          <div class="pill-value" id="act-laps">—</div>
+        </div>
+        <div class="pill">
+          <div class="pill-label">VO2max est.</div>
+          <div class="pill-value" id="act-vo2">—</div>
+        </div>
+        <div class="pill">
+          <div class="pill-label">Recovery</div>
+          <div class="pill-value" id="act-recovery">—</div>
+          <div class="pill-sub">hours</div>
+        </div>
+        <div class="pill">
+          <div class="pill-label">Week Load</div>
+          <div class="pill-value" id="act-load">—</div>
+        </div>
       </div>
+
       <div class="chart-card">
-        <div class="chart-title">Pace Trend</div>
-        <canvas id="chart-pace" height="160"></canvas>
+        <div class="chart-title">Weekly Distance <span class="chart-unit">km</span></div>
+        <canvas id="chart-weekly" height="140"></canvas>
       </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Pace Trend <span class="chart-unit">min/km</span></div>
+        <canvas id="chart-pace" height="140"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Training Load <span class="chart-unit">RPE × min</span></div>
+        <canvas id="chart-load" height="140"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Calories Burned <span class="chart-unit">kcal/week</span></div>
+        <canvas id="chart-calories" height="140"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Rep Performance <span class="chart-unit">seconds</span></div>
+        <canvas id="chart-reps" height="140"></canvas>
+        <div class="chart-empty-note" id="chart-reps-note">No rep data yet</div>
+      </div>
+
       <div class="chart-card">
         <div class="chart-title">Session Types</div>
-        <canvas id="chart-types" height="160"></canvas>
+        <canvas id="chart-types" height="140"></canvas>
       </div>
+
     </div>
 
     <!-- COOPER -->
@@ -1481,6 +1563,9 @@ async function deleteCooper(id) {
 
 // ─── GOALS ────────────────────────────────────────────────────
 function renderGoals() {
+  // Guard: Goals tab elements may not be reachable if stats not yet loaded
+  if (!stats || !document.getElementById('days-remaining')) return;
+
   if (stats.race_date) {
     document.getElementById('goal-race-date').value = stats.race_date;
   }
@@ -1509,6 +1594,7 @@ async function saveRaceDate() {
     body: JSON.stringify({ race_date: date })
   });
   await loadDashboard();
+  renderGoals();
 }
 
 async function saveWeeklyGoal() {
@@ -1520,6 +1606,7 @@ async function saveWeeklyGoal() {
     body: JSON.stringify({ weekly_goal: val })
   });
   await loadDashboard();
+  renderGoals();
 }
 
 // ─── ADD SESSION MODAL ────────────────────────────────────────
@@ -1639,16 +1726,24 @@ function fillFormFromParsed(parsed) {
 
   if (parsed.reps && parsed.reps.length > 0) {
     parsedReps = parsed.reps;
-    document.getElementById('parsed-reps-list').innerHTML = parsed.reps.map((r, i) => `
+    document.getElementById('parsed-reps-list').innerHTML = parsed.reps.map((r, i) => {
+      const t = r.time_seconds || 0;
+      const pMin = Math.floor(t / 60);
+      const pSec = Math.floor(t % 60);
+      const pCs  = Math.round((t - Math.floor(t)) * 100);
+      return `
       <div class="rep-row">
         <span class="rep-label">Rep ${r.rep_number} &mdash; ${r.distance_m}m</span>
-        <div class="time-row" style="flex:0;gap:6px">
-          <input type="number" id="rep-min-${i}" value="${Math.floor((r.time_seconds||0)/60)}" min="0" max="59" style="width:52px">
+        <div class="time-row" style="flex:0;gap:4px">
+          <input type="number" id="rep-min-${i}" value="${pMin || ''}" min="0" max="59" style="width:46px">
           <span>m</span>
-          <input type="number" id="rep-sec-${i}" value="${(r.time_seconds||0)%60}" min="0" max="59" style="width:52px">
+          <input type="number" id="rep-sec-${i}" value="${pSec || ''}" min="0" max="59" style="width:46px">
           <span>s</span>
+          <input type="number" id="rep-cs-${i}" value="${pCs || ''}" min="0" max="99" style="width:46px">
+          <span>cs</span>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     document.getElementById('parsed-reps-section').style.display = 'block';
   }
 }
@@ -1678,7 +1773,8 @@ async function saveSession() {
       distance_m: r.distance_m,
       time_seconds:
         (parseInt(document.getElementById(`rep-min-${i}`)?.value) || 0) * 60 +
-        (parseInt(document.getElementById(`rep-sec-${i}`)?.value) || 0)
+        (parseInt(document.getElementById(`rep-sec-${i}`)?.value) || 0) +
+        (parseInt(document.getElementById(`rep-cs-${i}`)?.value) || 0) / 100
     })).filter(r => r.time_seconds > 0);
 
     if (finalReps.length > 0) {
@@ -1735,11 +1831,13 @@ function generateRepInputs() {
   container.innerHTML = Array.from({length: currentRepCount}, (_, i) => `
     <div class="rep-row">
       <span class="rep-label">Rep ${i + 1} &mdash; ${currentRepDist}m</span>
-      <div class="time-row" style="flex:0;gap:6px">
-        <input type="number" id="rep-min-${i}" placeholder="00" min="0" max="59" style="width:52px">
+      <div class="time-row" style="flex:0;gap:4px">
+        <input type="number" id="rep-min-${i}" placeholder="00" min="0" max="59" style="width:46px">
         <span>m</span>
-        <input type="number" id="rep-sec-${i}" placeholder="00" min="0" max="59" style="width:52px">
+        <input type="number" id="rep-sec-${i}" placeholder="00" min="0" max="59" style="width:46px">
         <span>s</span>
+        <input type="number" id="rep-cs-${i}" placeholder="00" min="0" max="99" style="width:46px">
+        <span>cs</span>
       </div>
     </div>
   `).join('');
@@ -1751,7 +1849,8 @@ async function saveReps() {
     rep_number: i + 1,
     distance_m: currentRepDist,
     time_seconds: (parseInt(document.getElementById(`rep-min-${i}`)?.value) || 0) * 60 +
-                  (parseInt(document.getElementById(`rep-sec-${i}`)?.value) || 0)
+                  (parseInt(document.getElementById(`rep-sec-${i}`)?.value) || 0) +
+                  (parseInt(document.getElementById(`rep-cs-${i}`)?.value) || 0) / 100
   })).filter(r => r.time_seconds > 0);
 
   await fetch(`/api/runs/${currentRepRunId}/reps`, {
@@ -1830,13 +1929,16 @@ function showTab(name) {
 
 // ─── HELPERS ──────────────────────────────────────────────────
 function formatSeconds(seconds) {
-  if (!seconds) return '—';
-  const s = parseInt(seconds);
+  if (seconds == null || seconds === '' || isNaN(seconds)) return '—';
+  const total = parseFloat(seconds);
+  const cs = Math.round((total - Math.floor(total)) * 100);
+  const s = Math.floor(total);
   const m = Math.floor(s / 60);
-  const rem = s % 60;
-  if (m < 60) return `${m}:${String(rem).padStart(2,'0')}`;
+  const remS = s % 60;
+  const csStr = cs > 0 ? `.${String(cs).padStart(2,'0')}` : '';
+  if (m < 60) return `${m}:${String(remS).padStart(2,'0')}${csStr}`;
   const h = Math.floor(m / 60);
-  return `${h}:${String(m % 60).padStart(2,'0')}:${String(rem).padStart(2,'0')}`;
+  return `${h}:${String(m % 60).padStart(2,'0')}:${String(remS).padStart(2,'0')}${csStr}`;
 }
 
 function fmtTime(seconds) {
