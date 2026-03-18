@@ -624,15 +624,15 @@ def activity_stats(user_id):
             COALESCE(SUM(distance), 0) as km,
             COUNT(*) as sessions,
             COALESCE(AVG(effort), 0) as avg_effort,
-            COALESCE(SUM(time_seconds), 0) as total_seconds
+            COALESCE(SUM(time_seconds), 0) as total_time
         FROM runs WHERE user_id = %s
         AND date >= CURRENT_DATE - INTERVAL '84 days'
-        GROUP BY week ORDER BY week ASC
+        GROUP BY date_trunc('week', date::date) ORDER BY week ASC
     """, (user_id,))
     weekly = [dict(r) for r in c.fetchall()]
 
     for w in weekly:
-        hours = float(w["total_seconds"]) / 3600
+        hours = float(w["total_time"]) / 3600
         # MET ~8 for running, calories = MET * weight_kg * hours
         w["calories"] = round(8 * weight_kg * hours)
         w["week"] = str(w["week"])[:10]
