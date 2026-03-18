@@ -1401,6 +1401,11 @@ async function loadActivity() {
     const statsData = await statsRes.json();
     console.log('[activity] activity-stats response:', actData);
     console.log('[activity] stats response:', statsData);
+    console.log('[activity] weekly:', actData.weekly);
+    console.log('[activity] runs:', actData.runs?.length);
+    console.log('[activity] load_by_week:', actData.load_by_week);
+    console.log('[activity] rep_stats:', actData.rep_stats);
+    console.log('[activity] stats total_laps:', statsData.total_laps);
 
     document.getElementById('act-laps').textContent = statsData.total_laps ?? '—';
     document.getElementById('act-vo2').textContent = statsData.vo2max ?? '—';
