@@ -1041,6 +1041,69 @@ def get_user_goals(user_id):
     return jsonify({"goals": goals, "standards": standards, "bests": bests})
 
 
+# ─────────────────────────────────────────
+# AI SESSION PARSER
+# ─────────────────────────────────────────
+
+@app.route("/api/parse-session", methods=["POST"])
+def parse_session():
+    data = request.get_json()
+    text = data.get("text", "")
+    user_id = data.get("user_id")
+
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    prompt = f"""You are a running session parser. No emojis. Respond ONLY with valid JSON.
+
+The athlete described their training session in natural language. Extract all structured data.
+
+Session description: "{text}"
+
+Respond with ONLY this JSON structure, no other text:
+{{
+  "type": "run|intervals|circuit|technique",
+  "date": "YYYY-MM-DD or null",
+  "distance_km": 8.5,
+  "time_seconds": 2700,
+  "effort": 7,
+  "notes": "brief summary of the session",
+  "reps": [
+    {{"rep_number": 1, "distance_m": 150, "time_seconds": 28}},
+    {{"rep_number": 2, "distance_m": 150, "time_seconds": 29}}
+  ],
+  "blocks": [
+    {{"label": "Warmup", "duration_min": 12, "notes": "2 laps easy + mobility"}},
+    {{"label": "Fartlek", "laps": 4, "notes": "100m fast / 100m easy alternating"}},
+    {{"label": "Quality block", "reps": 6, "distance_m": 150, "notes": "85-90% effort, 1 min rest"}}
+  ]
+}}
+
+Rules:
+- type: use 'intervals' if there are series/reps, 'technique' if drills, 'circuit' if mixed, 'run' if continuous
+- If a value is unknown or not mentioned, use null
+- reps array: only include if there are specific timed repetitions with known times
+- blocks array: always include all workout blocks even if no specific times
+- date: use today {str(date.today())} if not specified
+- distance_km: estimate total distance if possible, null if unknown
+- time_seconds: total session time if mentioned, null if unknown
+- effort: estimate 1-10 based on described intensity, default 6 if unclear
+- notes: write in the same language the athlete used"""
+
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        parsed = json.loads(response.content[0].text)
+        return jsonify({"ok": True, "parsed": parsed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/user/<int:user_id>/profile", methods=["PUT"])
 def api_update_profile(user_id):
     d = request.get_json()
