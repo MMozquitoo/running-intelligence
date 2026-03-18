@@ -385,6 +385,7 @@ def _build_stats(user_id):
         "total_planned": total_planned,
         "completed_pct": completed_pct,
         "recent_sessions": recent_formatted,
+        "profile_data": user_row["profile_data"] if user_row else None,
     }
 
 
@@ -484,8 +485,17 @@ def api_set_race_date(user_id):
 # ─────────────────────────────────────────
 
 def _extract_plan(text):
-    """Extract JSON plan from AI response text."""
     match = re.search(r'\{"plan"\s*:\s*\[.*?\]\}', text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except Exception:
+            pass
+    return None
+
+
+def _extract_profile(text):
+    match = re.search(r'\{"profile"\s*:\s*\{.*?\}\}', text, re.DOTALL)
     if match:
         try:
             return json.loads(match.group(0))
@@ -542,19 +552,33 @@ def api_chat():
         history_lines.append(line)
     history_str = "\n".join(history_lines) if history_lines else "No sessions recorded yet."
 
-    profile_str = json.dumps(profile_data) if profile_data else "No profile data yet."
+    profile_str = json.dumps(profile_data) if profile_data else "null"
 
-    system_prompt = f"""You are a professional running coach. No emojis. Concise, direct responses in the same language the athlete writes in.
-Athlete: {user_name}
-Profile: {profile_str}
-Recent training history:
+    system_prompt = f"""Eres una entrenadora de running personalizada. Sin emojis. Respuestas concisas en espanol.
+Atleta: {user_name}
+
+Si el atleta no tiene perfil guardado (profile_data es null o vacio), tu primera tarea es recopilar estos datos uno a uno en la conversacion:
+- Edad
+- Peso en kg
+- Nivel actual (principiante / intermedio / avanzado)
+- Objetivo principal (completar 10k / mejorar tiempo / perder peso / resistencia general)
+- Dias disponibles por semana para entrenar
+
+Cuando tengas todos esos datos, calcula los tiempos estimados segun tablas de rendimiento estandar y devuelve al final de tu mensaje este JSON exacto:
+{{"profile": {{"age": 28, "weight_kg": 70, "level": "intermedio", "goal": "completar 10k", "days_per_week": 4, "est_100m_sec": 18, "est_400m_sec": 95, "est_1km_sec": 280, "est_5km_sec": 1500, "est_10km_sec": 3200}}}}
+
+Despues del onboarding, usa el perfil y el historial para generar planes personalizados.
+Cuando generes un plan de entrenamiento devuelve al final de tu mensaje este JSON exacto:
+{{"plan": [{{"label": "Calentamiento", "type": "warmup"}}, {{"label": "Serie 1 - 400m", "type": "interval"}}]}}
+
+Los tipos validos para el plan son: warmup, lap, interval, rest, cooldown, series, drill.
+Nunca pongas los bloques JSON en medio del texto, siempre al final.
+No uses emojis en ninguna parte de tu respuesta.
+
+Historial del atleta:
 {history_str}
 
-When you generate a training plan, always append a JSON block at the very end of your response in exactly this format:
-{{"plan": [{{"label": "Warm-up", "type": "warmup"}}, {{"label": "Lap 1", "type": "lap"}}, ...]}}
-Valid types: warmup, lap, interval, rest, cooldown, series, drill.
-The rest of your response before the JSON can be plain text explanation.
-Do not use emojis anywhere in your response."""
+Perfil actual: {profile_str}"""
 
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -569,8 +593,13 @@ Do not use emojis anywhere in your response."""
         return jsonify({"error": f"AI error: {str(e)}"}), 500
 
     plan_json = _extract_plan(ai_text)
+    profile_json = _extract_profile(ai_text)
     clean_text = ai_text
     session_id = None
+
+    # Strip JSON blocks from display text (always at end, strip greedily)
+    clean_text = re.sub(r'\{"plan"\s*:\s*\[.*?\]\}', '', clean_text, flags=re.DOTALL).strip()
+    clean_text = re.sub(r'\{"profile"\s*:\s*\{.*?\}\}', '', clean_text, flags=re.DOTALL).strip()
 
     conn2 = get_conn()
     c2 = conn2.cursor()
@@ -578,13 +607,17 @@ Do not use emojis anywhere in your response."""
     if plan_json and plan_json.get("plan"):
         plan = plan_json["plan"]
         t_key = _template_key(plan)
-        clean_text = re.sub(r'\{"plan"\s*:\s*\[.*?\]\}', '', ai_text, flags=re.DOTALL).strip()
-
         c2.execute("""
             INSERT INTO training_sessions (user_id, plan, template_key, status)
             VALUES (%s, %s, %s, 'pending') RETURNING id
         """, (user_id, json.dumps(plan), t_key))
         session_id = c2.fetchone()["id"]
+
+    if profile_json and profile_json.get("profile"):
+        c2.execute(
+            "UPDATE users SET profile_data = %s WHERE id = %s",
+            (json.dumps(profile_json["profile"]), user_id)
+        )
 
     c2.execute(
         "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s)",
@@ -600,6 +633,7 @@ Do not use emojis anywhere in your response."""
         "text": clean_text,
         "plan": plan_json["plan"] if plan_json else None,
         "session_id": session_id,
+        "profile_saved": profile_json is not None,
     })
 
 
@@ -620,6 +654,30 @@ def api_chat_history(user_id):
         {"role": r["role"], "content": r["content"], "created_at": str(r["created_at"])}
         for r in rows
     ])
+
+
+@app.route("/api/training-session/<int:session_id>/results")
+def api_get_session_results(session_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT plan, status FROM training_sessions WHERE id = %s", (session_id,))
+    session_row = c.fetchone()
+    if not session_row:
+        c.close(); conn.close()
+        return jsonify({"error": "Session not found"}), 404
+    c.execute("""
+        SELECT exercise_index, label, time_seconds
+        FROM session_results
+        WHERE session_id = %s
+        ORDER BY exercise_index
+    """, (session_id,))
+    results = [dict(r) for r in c.fetchall()]
+    c.close(); conn.close()
+    return jsonify({
+        "plan": session_row["plan"] or [],
+        "status": session_row["status"],
+        "results": results,
+    })
 
 
 # ─────────────────────────────────────────

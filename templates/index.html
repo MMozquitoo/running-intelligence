@@ -873,6 +873,61 @@
       40% { opacity: 1; transform: scale(1); }
     }
 
+    /* ── BOTTOM NAV ── */
+    .bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--card-border);
+      z-index: 100;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .bottom-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 8px 16px;
+      transition: color 0.2s;
+    }
+    .bottom-nav-item.active { color: var(--accent); }
+    .bottom-nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── COMPLETE BUTTON on session cards ── */
+    .btn-complete {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(200,255,0,0.3);
+      background: rgba(200,255,0,0.06);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-complete:hover { background: rgba(200,255,0,0.14); }
+
+    @media (max-width: 768px) {
+      .bottom-nav { display: flex; }
+      .header-nav { display: none; }
+      body { padding-bottom: 64px; }
+    }
+
     @media (max-width: 600px) {
       .app-header { padding: 12px 16px; }
       .header-logo { font-size: 11px; }
@@ -1185,6 +1240,25 @@
 
 <div id="toast"></div>
 
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bottom-nav-item active" id="nav-home" onclick="switchTab('home')">
+    <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="bottom-nav-item" id="nav-log" onclick="switchTab('log')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    <span>Log</span>
+  </button>
+  <button class="bottom-nav-item" id="nav-history" onclick="switchTab('history')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="4" x2="9" y2="9"/><line x1="15" y1="4" x2="15" y2="9"/><line x1="7" y1="14" x2="17" y2="14"/><line x1="7" y1="18" x2="13" y2="18"/></svg>
+    <span>History</span>
+  </button>
+  <button class="bottom-nav-item" id="nav-cooper" onclick="switchTab('cooper')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+    <span>Cooper</span>
+  </button>
+</nav>
+
 <script>
   // ── STATE ────────────────────────────────
   let currentUser = null;
@@ -1229,7 +1303,7 @@
     document.getElementById('screen-profile').classList.remove('active');
     document.getElementById('screen-app').classList.add('active');
     loadDashboard();
-    loadChatHistory(id);
+    initChat(id);
   }
 
   function switchUser() {
@@ -1252,27 +1326,54 @@
     const idx = tabs.indexOf(name);
     document.querySelectorAll('.nav-tab')[idx].classList.add('active');
 
-    if (name === 'home') loadChatHistory(currentUser?.id);
+    // Sync bottom nav
+    document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
+    const navBtn = document.getElementById('nav-' + name);
+    if (navBtn) navBtn.classList.add('active');
+
+    if (name === 'home' && currentUser) initChat(currentUser.id);
     if (name === 'history') loadHistory();
     if (name === 'cooper') loadCooper();
   }
 
-  // ── CHAT HISTORY ─────────────────────────
-  async function loadChatHistory(userId) {
+  // ── CHAT INIT (onboarding-aware) ─────────
+  async function initChat(userId) {
     if (!userId) return;
-    const res = await fetch(`/api/chat-history/${userId}`);
-    const messages = await res.json();
+    const [statsRes, historyRes] = await Promise.all([
+      fetch(`/api/stats/${userId}`),
+      fetch(`/api/chat-history/${userId}`),
+    ]);
+    const stats = await statsRes.json();
+    const messages = await historyRes.json();
+
     const container = document.getElementById('chat-messages');
     container.innerHTML = '';
-    if (messages.length === 0) {
-      container.innerHTML = `
-        <div class="chat-empty" id="chat-empty">
-          <div class="chat-empty-title">Ask your coach</div>
-          <div>Describe your goals, ask for a training plan,<br>or request workout suggestions.</div>
-        </div>`;
+
+    if (messages.length > 0) {
+      messages.forEach(msg => appendMessage(msg.role === 'assistant' ? 'ai' : 'user', msg.content));
       return;
     }
-    messages.forEach(msg => appendMessage(msg.role === 'assistant' ? 'ai' : 'user', msg.content));
+
+    // No history: show onboarding or empty prompt
+    const hasProfile = stats.profile_data && Object.keys(stats.profile_data).length > 0;
+    if (!hasProfile) {
+      container.innerHTML = '';
+      appendMessage('ai', 'Hola. Antes de generar tu primer plan necesito conocerte un poco. Cuantos anos tienes?');
+    } else {
+      container.innerHTML = `
+        <div class="chat-empty" id="chat-empty">
+          <div class="chat-empty-title">Hola de nuevo</div>
+          <div>Dime que entrenamiento quieres hoy<br>o preguntame lo que necesites.</div>
+        </div>`;
+    }
+  }
+
+  // ── FORMAT SECONDS ────────────────────────
+  function formatSeconds(totalSecs) {
+    if (!totalSecs && totalSecs !== 0) return '--';
+    const m = Math.floor(totalSecs / 60);
+    const s = totalSecs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
   // ── DASHBOARD ────────────────────────────
@@ -1329,13 +1430,42 @@
       container.innerHTML = s.recent_sessions.map(sess => `
         <div class="session-card">
           <div class="session-date">${sess.created_at}</div>
-          <div class="session-detail">${sess.exercise_count} exercise${sess.exercise_count !== 1 ? 's' : ''}</div>
-          <div class="session-status ${sess.status}">${sess.status.replace('_', ' ')}</div>
+          <div class="session-detail">${sess.exercise_count} ejercicio${sess.exercise_count !== 1 ? 's' : ''}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="session-status ${sess.status}">${sess.status.replace('_', ' ')}</div>
+            ${sess.status === 'pending' ? `<button class="btn-complete" onclick="openPendingSession(${sess.id})">Completar</button>` : ''}
+          </div>
         </div>
       `).join('');
     } else {
-      container.innerHTML = '<div class="empty-state">No AI sessions yet. Ask your coach for a plan.</div>';
+      container.innerHTML = '<div class="empty-state">Sin sesiones de IA aun. Pide un plan a tu entrenadora.</div>';
     }
+  }
+
+  async function openPendingSession(sessionId) {
+    const res = await fetch(`/api/training-session/${sessionId}/results`);
+    const data = await res.json();
+    if (!data.plan || data.plan.length === 0) { toast('Sesion sin plan', true); return; }
+
+    pendingSessionId = sessionId;
+    pendingPlan = data.plan;
+
+    switchTab('home');
+    document.getElementById('chat-input-row').style.display = 'none';
+    document.getElementById('tracking-section').style.display = 'block';
+
+    // Pre-fill any existing partial results
+    renderTrackingForm(data.plan);
+    data.results.forEach(r => {
+      const minEl = document.getElementById(`track-min-${r.exercise_index}`);
+      const secEl = document.getElementById(`track-sec-${r.exercise_index}`);
+      if (minEl && r.time_seconds != null) {
+        minEl.value = Math.floor(r.time_seconds / 60);
+        secEl.value = r.time_seconds % 60;
+      }
+    });
+
+    document.getElementById('tracking-section').scrollIntoView({ behavior: 'smooth' });
   }
 
   // ── RACE DATE ────────────────────────────
