@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Running Intelligence</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon_io/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon_io/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon_io/favicon-16x16.png">
+  <link rel="manifest" href="/favicon_io/site.webmanifest">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
@@ -886,6 +890,56 @@
       letter-spacing: 0.04em;
       padding: 32px 0;
     }
+    /* ── HISTORY TAB ── */
+    .tab-header { margin-bottom: 16px; }
+    .tab-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+
+    .filter-row {
+      display: flex; gap: 6px; overflow-x: auto;
+      padding-bottom: 4px; scrollbar-width: none;
+    }
+    .filter-btn {
+      padding: 5px 12px; border-radius: 20px;
+      border: 1px solid var(--border); background: none;
+      color: var(--text-muted); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      cursor: pointer; white-space: nowrap; transition: all 0.2s;
+    }
+    .filter-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+    .history-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; margin-bottom: 8px; overflow: hidden;
+    }
+    .history-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 16px; cursor: pointer;
+    }
+    .history-date { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+    .history-type-badge { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .history-card-right { display: flex; align-items: center; gap: 10px; }
+    .history-stat { font-size: 12px; color: var(--text-secondary); }
+    .expand-arrow { transition: transform 0.2s; color: var(--text-muted); }
+    .history-detail { padding: 0 16px 16px; border-top: 1px solid var(--border); }
+    .history-notes { font-size: 12px; color: var(--text-muted); padding: 12px 0 8px; line-height: 1.5; }
+    .reps-table { margin: 8px 0; }
+    .reps-table-title { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .rep-table-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .rep-table-label { color: var(--text-secondary); }
+    .rep-table-time { font-weight: 500; }
+    .history-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-edit {
+      padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: none; color: var(--text-secondary); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-edit:hover { border-color: var(--text); color: var(--text); }
+    .btn-delete {
+      padding: 6px 16px; border-radius: 8px; border: 1px solid rgba(255,68,68,0.3);
+      background: none; color: #f87171; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-delete:hover { background: rgba(255,68,68,0.1); }
   </style>
 </head>
 <body>
@@ -1068,6 +1122,20 @@
     </div>
 
     <!-- GOALS -->
+    <div id="tab-history" class="tab-content">
+      <div class="tab-header">
+        <div class="tab-title">History</div>
+        <div class="filter-row">
+          <button class="filter-btn active" data-type="all" onclick="filterHistory('all')">All</button>
+          <button class="filter-btn" data-type="run" onclick="filterHistory('run')">Run</button>
+          <button class="filter-btn" data-type="intervals" onclick="filterHistory('intervals')">Intervals</button>
+          <button class="filter-btn" data-type="circuit" onclick="filterHistory('circuit')">Circuit</button>
+          <button class="filter-btn" data-type="technique" onclick="filterHistory('technique')">Technique</button>
+        </div>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
     <div id="tab-goals" class="tab-content">
 
       <div class="goal-card">
@@ -1116,6 +1184,10 @@
       <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Activity
     </button>
+    <button class="nav-item" id="nav-history" onclick="showTab('history')">
+      <svg viewBox="0 0 24 24"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 3 3 8 8 8"/></svg>
+      History
+    </button>
     <button class="nav-add" onclick="openModal()">+</button>
     <button class="nav-item" id="nav-cooper" onclick="showTab('cooper')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1134,7 +1206,7 @@
   <div class="modal">
 
     <div class="modal-header">
-      <span>Add Session</span>
+      <span id="modal-title">Add Session</span>
       <button class="modal-close" onclick="closeModal()">
         <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1217,7 +1289,7 @@
         </div>
       </div>
 
-      <button class="btn-primary" onclick="saveSession()">Save Session</button>
+      <button class="btn-primary" id="btn-save-session" onclick="saveSession()">Save Session</button>
     </div>
 
   </div>
@@ -1248,6 +1320,9 @@ let currentMode = 'quick';
 let parsedReps = [];
 let parsedBlocks = [];
 let selectedType = 'run';
+let allRuns = [];
+let historyFilter = 'all';
+let editingRunId = null;
 
 // ─── INIT ────────────────────────────────────────────────────
 async function init() {
@@ -1308,7 +1383,7 @@ async function loadDashboard() {
   renderCooperHistory();
 
   if (document.getElementById('tab-activity').classList.contains('active')) {
-    renderCharts();
+    loadActivity();
   }
 }
 
@@ -1652,13 +1727,12 @@ function renderGoals() {
       d > 0 ? 'days remaining' : d === 0 ? 'Today' : 'Race passed';
   }
 
-  const profile = stats.profile_data || {};
-  const goal = profile.weekly_goal > 0 ? profile.weekly_goal : null;
+  const weeklyGoal = stats.weekly_goal || null;
   const weekKm = stats.week_km || 0;
-  if (goal) document.getElementById('weekly-goal').value = goal;
-  const pct = goal ? Math.min(100, (weekKm / goal) * 100) : 0;
+  if (weeklyGoal) document.getElementById('weekly-goal').value = weeklyGoal;
+  const pct = weeklyGoal ? Math.min(100, (weekKm / weeklyGoal) * 100) : 0;
   document.getElementById('weekly-progress').style.width = pct + '%';
-  document.getElementById('weekly-status').textContent = goal ? `${weekKm} / ${goal} km this week` : '— / — km this week';
+  document.getElementById('weekly-status').textContent = weeklyGoal ? `${weekKm} / ${weeklyGoal} km this week` : 'Set a weekly goal below';
 }
 
 async function saveRaceDate() {
@@ -1697,6 +1771,13 @@ function openModal() {
 function closeModal() {
   document.getElementById('modal-add').style.display = 'none';
   document.body.style.overflow = '';
+  if (editingRunId) {
+    editingRunId = null;
+    document.getElementById('modal-title').textContent = 'Add Session';
+    const btn = document.getElementById('btn-save-session');
+    btn.textContent = 'Save Session';
+    btn.onclick = saveSession;
+  }
 }
 
 function overlayClose(e) {
@@ -1984,6 +2065,130 @@ function renderGoalsTable(data) {
     : 'Goals based on World Athletics standards for your profile. Train to unlock personalized goals.';
 }
 
+// ─── HISTORY ─────────────────────────────────────────────────
+async function loadHistory() {
+  const res = await fetch(`/api/user/${currentUser.id}/runs`);
+  allRuns = await res.json();
+  renderHistory();
+}
+
+function filterHistory(type) {
+  historyFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.type === type)
+  );
+  renderHistory();
+}
+
+function renderHistory() {
+  const filtered = historyFilter === 'all' ? allRuns : allRuns.filter(r => r.type === historyFilter);
+  const container = document.getElementById('history-list');
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state">No sessions yet.</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(run => `
+    <div class="history-card" id="run-card-${run.id}">
+      <div class="history-card-header" onclick="toggleRunDetail(${run.id})">
+        <div class="history-card-left">
+          <div class="history-date">${run.date}</div>
+          <div class="history-type-badge">${run.type}</div>
+        </div>
+        <div class="history-card-right">
+          ${run.distance ? `<span class="history-stat">${run.distance} km</span>` : ''}
+          ${run.pace && run.pace !== '-' ? `<span class="history-stat">${run.pace} /km</span>` : ''}
+          ${run.effort ? `<span class="history-stat">RPE ${run.effort}</span>` : ''}
+          <svg class="expand-arrow" id="arrow-${run.id}" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+      <div class="history-detail" id="detail-${run.id}" style="display:none">
+        ${run.notes ? `<div class="history-notes">${run.notes}</div>` : ''}
+        ${run.reps && run.reps.length > 0 ? `
+          <div class="reps-table">
+            <div class="reps-table-title">Repetitions</div>
+            ${run.reps.map(r => `
+              <div class="rep-table-row">
+                <span class="rep-table-label">Rep ${r.rep_number} &mdash; ${r.distance_m}m</span>
+                <span class="rep-table-time">${formatSeconds(r.time_seconds)}</span>
+              </div>`).join('')}
+          </div>` : ''}
+        <div class="history-actions">
+          <button class="btn-edit" onclick="openEditModal(${run.id})">Edit</button>
+          <button class="btn-delete" onclick="deleteRun(${run.id})">Delete</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleRunDetail(runId) {
+  const detail = document.getElementById(`detail-${runId}`);
+  const arrow = document.getElementById(`arrow-${runId}`);
+  const visible = detail.style.display !== 'none';
+  detail.style.display = visible ? 'none' : 'block';
+  arrow.style.transform = visible ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function openEditModal(runId) {
+  const run = allRuns.find(r => r.id === runId);
+  if (!run) return;
+  editingRunId = runId;
+  document.getElementById('modal-add').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('modal-title').textContent = 'Edit Session';
+  setMode('manual');
+  selectedType = run.type;
+  document.querySelectorAll('#type-selector .type-btn').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.type === run.type)
+  );
+  document.getElementById('add-date').value = run.date;
+  document.getElementById('add-distance').value = run.distance || '';
+  if (run.time_seconds) {
+    document.getElementById('add-hours').value = Math.floor(run.time_seconds / 3600) || '';
+    document.getElementById('add-mins').value = Math.floor((run.time_seconds % 3600) / 60) || '';
+    document.getElementById('add-secs').value = run.time_seconds % 60 || '';
+  }
+  document.getElementById('add-effort').value = run.effort || 5;
+  document.getElementById('effort-val').textContent = run.effort || 5;
+  document.getElementById('add-notes').value = run.notes || '';
+  const btn = document.getElementById('btn-save-session');
+  btn.textContent = 'Update Session';
+  btn.onclick = updateSession;
+}
+
+async function updateSession() {
+  if (!editingRunId) return;
+  const h = parseInt(document.getElementById('add-hours').value) || 0;
+  const m = parseInt(document.getElementById('add-mins').value) || 0;
+  const s = parseInt(document.getElementById('add-secs').value) || 0;
+  const timeSeconds = (h * 3600 + m * 60 + s) || null;
+  await fetch(`/api/runs/${editingRunId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      date: document.getElementById('add-date').value,
+      type: selectedType,
+      distance: parseFloat(document.getElementById('add-distance').value) || null,
+      time_seconds: timeSeconds,
+      effort: parseInt(document.getElementById('add-effort').value),
+      notes: document.getElementById('add-notes').value.trim()
+    })
+  });
+  closeModal();
+  loadHistory();
+  loadDashboard();
+  showToast('Session updated');
+}
+
+async function deleteRun(runId) {
+  if (!confirm('Delete this session?')) return;
+  await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
+  loadHistory();
+  loadDashboard();
+  showToast('Session deleted');
+}
+
 // ─── TOAST ───────────────────────────────────────────────────
 function showToast(msg, isError = false) {
   const el = document.getElementById('toast');
@@ -2001,6 +2206,7 @@ function showTab(name) {
   const nav = document.getElementById(`nav-${name}`);
   if (nav) nav.classList.add('active');
   if (name === 'activity') loadActivity();
+  if (name === 'history') loadHistory();
   if (name === 'goals') { renderGoals(); loadGoals(); }
 }
 

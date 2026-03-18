@@ -530,6 +530,7 @@ def _build_stats(user_id):
     total_time_seconds = sum(r["time_seconds"] for r in runs)
     profile = (user_row["profile_data"] or {}) if user_row else {}
     weight_kg = profile.get("weight_kg", 70)
+    weekly_goal = profile.get("weekly_goal") or None
     total_hours = total_time_seconds / 3600
     calories_burned = round(8.0 * weight_kg * total_hours)
     estimates = {
@@ -587,6 +588,7 @@ def _build_stats(user_id):
         "week_load": week_load,
         "recovery_hours": recovery_hours,
         "vo2max": vo2max,
+        "weekly_goal": weekly_goal,
     }
 
 
@@ -672,6 +674,78 @@ def activity_stats(user_id):
     except Exception as e:
         import traceback
         return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+
+# ─────────────────────────────────────────
+# RUNS HISTORY / EDIT / DELETE
+# ─────────────────────────────────────────
+
+@app.route("/api/user/<int:user_id>/runs")
+def get_user_runs(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, date, type, distance, time_seconds, pace, effort, notes
+        FROM runs WHERE user_id = %s
+        ORDER BY date DESC, id DESC
+        LIMIT 100
+    """, (user_id,))
+    runs = [dict(r) for r in c.fetchall()]
+
+    if runs:
+        run_ids = [r["id"] for r in runs]
+        c.execute("""
+            SELECT run_id, rep_number, distance_m, time_seconds, notes
+            FROM run_reps WHERE run_id = ANY(%s)
+            ORDER BY run_id, rep_number
+        """, (run_ids,))
+        reps_by_run = {}
+        for rep in c.fetchall():
+            reps_by_run.setdefault(rep["run_id"], []).append(dict(rep))
+        for run in runs:
+            run["reps"] = reps_by_run.get(run["id"], [])
+
+    c.close(); conn.close()
+    return jsonify(runs)
+
+
+@app.route("/api/runs/<int:run_id>", methods=["PUT"])
+def update_run(run_id):
+    data = request.get_json(force=True, silent=True) or {}
+    conn = get_conn()
+    c = conn.cursor()
+
+    distance = data.get("distance")
+    time_seconds = data.get("time_seconds")
+    pace = None
+    if distance and time_seconds and float(distance) > 0:
+        pace_secs = float(time_seconds) / float(distance)
+        pace = f"{int(pace_secs//60)}:{int(pace_secs%60):02d}"
+
+    c.execute("""
+        UPDATE runs SET
+            date = %s, type = %s, distance = %s,
+            time_seconds = %s, pace = %s, effort = %s, notes = %s
+        WHERE id = %s
+    """, (
+        data.get("date"), data.get("type"), distance,
+        time_seconds, pace, data.get("effort"), data.get("notes"),
+        run_id
+    ))
+    conn.commit()
+    c.close(); conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/runs/<int:run_id>", methods=["DELETE"])
+def delete_run(run_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM run_reps WHERE run_id = %s", (run_id,))
+    c.execute("DELETE FROM runs WHERE id = %s", (run_id,))
+    conn.commit()
+    c.close(); conn.close()
+    return jsonify({"ok": True})
 
 
 # ─────────────────────────────────────────
