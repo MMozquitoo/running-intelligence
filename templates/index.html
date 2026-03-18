@@ -1386,106 +1386,175 @@ const CHART_DEFAULTS = {
   }
 };
 
-function renderCharts() {
-  Object.values(charts).forEach(c => c && c.destroy());
+function destroyCharts() {
+  Object.values(charts).forEach(c => { try { c && c.destroy(); } catch(e) {} });
   charts = {};
-  renderWeeklyChart();
-  renderPaceChart();
-  renderTypesChart();
 }
 
-function renderWeeklyChart() {
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const dow = (today.getDay() + 6) % 7; // Monday=0
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - dow);
+async function loadActivity() {
+  const [actRes, statsRes] = await Promise.all([
+    fetch(`/api/user/${currentUser.id}/activity-stats`),
+    fetch(`/api/stats/${currentUser.id}`)
+  ]);
+  const actData = await actRes.json();
+  const statsData = await statsRes.json();
 
-  const weeks = [];
-  for (let i = 7; i >= 0; i--) {
-    const start = new Date(monday);
-    start.setDate(monday.getDate() - i * 7);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
-    weeks.push({ start, end, km: 0, label: fmtShortDate(start) });
-  }
+  document.getElementById('act-laps').textContent = statsData.total_laps ?? '—';
+  document.getElementById('act-vo2').textContent = statsData.vo2max ?? '—';
+  document.getElementById('act-recovery').textContent = statsData.recovery_hours ?? '—';
+  document.getElementById('act-load').textContent = statsData.week_load ?? '—';
 
-  runs.forEach(r => {
-    const d = new Date(r.date + 'T00:00:00');
-    for (const w of weeks) {
-      if (d >= w.start && d < w.end) { w.km += r.distance; break; }
-    }
-  });
+  renderActivityCharts(actData);
+}
 
-  const ctx = document.getElementById('chart-weekly').getContext('2d');
-  charts.weekly = new Chart(ctx, {
+function renderActivityCharts(data) {
+  destroyCharts();
+
+  const weekly = data.weekly || [];
+  const weeks  = weekly.map(w => w.week.slice(5));
+  const kms    = weekly.map(w => Math.round(parseFloat(w.km) * 10) / 10 || 0);
+
+  // 1 — Weekly Distance
+  charts.weekly = new Chart(document.getElementById('chart-weekly'), {
     type: 'bar',
     data: {
-      labels: weeks.map(w => w.label),
-      datasets: [{
-        data: weeks.map(w => Math.round(w.km * 10) / 10),
-        backgroundColor: 'rgba(255,255,255,0.12)',
-        borderColor: 'rgba(255,255,255,0.35)',
-        borderWidth: 1,
-        borderRadius: 4,
-      }]
+      labels: weeks,
+      datasets: [{ data: kms, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 4 }]
     },
-    options: { ...CHART_DEFAULTS }
+    options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } } }
   });
-}
 
-function renderPaceChart() {
-  const data = runs
-    .filter(r => r.type === 'run' && r.time_seconds > 0 && r.distance > 0)
-    .slice(0, 20)
-    .reverse();
-
-  const paceVals = data.map(r => Math.round((r.time_seconds / r.distance / 60) * 100) / 100);
-  const labels = data.map(r => fmtShortDate(new Date(r.date + 'T00:00:00')));
-
-  const ctx = document.getElementById('chart-pace').getContext('2d');
-  charts.pace = new Chart(ctx, {
+  // 2 — Pace Trend (Y reversed: lower = faster = top)
+  const paceRuns = (data.runs || []).filter(r => r.pace && r.pace !== '-' && r.type === 'run');
+  charts.pace = new Chart(document.getElementById('chart-pace'), {
     type: 'line',
     data: {
-      labels,
+      labels: paceRuns.map(r => r.date?.slice(5)),
       datasets: [{
-        data: paceVals,
-        borderColor: 'rgba(255,255,255,0.55)',
-        backgroundColor: 'rgba(255,255,255,0.04)',
+        data: paceRuns.map(r => {
+          const p = r.pace?.split(':');
+          return p ? parseInt(p[0]) + parseInt(p[1]) / 60 : null;
+        }),
+        borderColor: 'rgba(255,255,255,0.6)',
         borderWidth: 1.5,
         pointRadius: 3,
-        pointBackgroundColor: 'rgba(255,255,255,0.55)',
+        pointBackgroundColor: 'white',
         tension: 0.3,
-        fill: true,
+        fill: false,
       }]
     },
     options: {
       ...CHART_DEFAULTS,
       scales: {
         ...CHART_DEFAULTS.scales,
-        y: { ...CHART_DEFAULTS.scales.y, reverse: true }
+        y: {
+          ...CHART_DEFAULTS.scales.y,
+          reverse: true,
+          ticks: {
+            ...CHART_DEFAULTS.scales.y.ticks,
+            callback: v => `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, '0')}`
+          }
+        }
       }
     }
   });
-}
 
-function renderTypesChart() {
-  const counts = {};
-  runs.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
+  // 3 — Training Load
+  const loadData = data.load_by_week || [];
+  charts.load = new Chart(document.getElementById('chart-load'), {
+    type: 'bar',
+    data: {
+      labels: loadData.map(w => w.week.slice(5)),
+      datasets: [{
+        data: loadData.map(w => w.load),
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255,255,255,0.3)',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } } }
+  });
 
-  const labels = Object.keys(counts);
-  const data = Object.values(counts);
-  const colors = ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0.12)'];
+  // 4 — Calories per week (estimated from load data weekly)
+  charts.calories = new Chart(document.getElementById('chart-calories'), {
+    type: 'line',
+    data: {
+      labels: weeks,
+      datasets: [{
+        data: weekly.map(w => {
+          // 8 MET * weight * hours — weight embedded in backend but not in weekly endpoint
+          // Use load as proxy: load * 0.1 kcal approximation
+          const load = (data.load_by_week || []).find(l => l.week === w.week)?.load || 0;
+          return Math.round(load * 0.5);
+        }),
+        borderColor: 'rgba(255,255,255,0.5)',
+        borderWidth: 1.5,
+        fill: true,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        tension: 0.4,
+        pointRadius: 2,
+      }]
+    },
+    options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } } }
+  });
 
-  const ctx = document.getElementById('chart-types').getContext('2d');
-  charts.types = new Chart(ctx, {
+  // 5 — Rep Performance
+  const repStats = data.rep_stats || [];
+  const repsCanvas = document.getElementById('chart-reps');
+  const repsNote   = document.getElementById('chart-reps-note');
+  if (repStats.length > 0) {
+    repsCanvas.style.display = 'block';
+    repsNote.style.display = 'none';
+    charts.reps = new Chart(repsCanvas, {
+      type: 'bar',
+      data: {
+        labels: repStats.map(r => `${r.distance_m}m`),
+        datasets: [
+          {
+            label: 'Best',
+            data: repStats.map(r => Math.round(parseFloat(r.best) * 100) / 100),
+            backgroundColor: 'rgba(255,255,255,0.6)',
+            borderRadius: 4,
+          },
+          {
+            label: 'Avg',
+            data: repStats.map(r => Math.round(parseFloat(r.avg) * 100) / 100),
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            borderRadius: 4,
+          }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: { legend: { display: true, labels: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } } } },
+        scales: {
+          ...CHART_DEFAULTS.scales,
+          y: {
+            ...CHART_DEFAULTS.scales.y,
+            reverse: true,
+            ticks: { ...CHART_DEFAULTS.scales.y.ticks, callback: v => `${v}s` }
+          }
+        }
+      }
+    });
+  } else {
+    repsCanvas.style.display = 'none';
+    repsNote.style.display = 'block';
+  }
+
+  // 6 — Session Types
+  const typeCounts = {};
+  (data.runs || []).forEach(r => { typeCounts[r.type] = (typeCounts[r.type] || 0) + 1; });
+  const typeLabels = Object.keys(typeCounts);
+  const typeColors = ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)'];
+  charts.types = new Chart(document.getElementById('chart-types'), {
     type: 'doughnut',
     data: {
-      labels,
+      labels: typeLabels,
       datasets: [{
-        data,
-        backgroundColor: colors.slice(0, labels.length),
-        borderColor: 'transparent',
+        data: Object.values(typeCounts),
+        backgroundColor: typeColors.slice(0, typeLabels.length),
         borderWidth: 0,
       }]
     },
