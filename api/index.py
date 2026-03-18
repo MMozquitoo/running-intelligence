@@ -609,7 +609,7 @@ def activity_stats(user_id):
         c.execute("""
             SELECT date, type, distance, time_seconds, effort, pace
             FROM runs WHERE user_id = %s
-            AND date >= CURRENT_DATE - INTERVAL '90 days'
+            AND date::date >= CURRENT_DATE - INTERVAL '90 days'
             ORDER BY date ASC
         """, (user_id,))
         runs = [dict(r) for r in c.fetchall()]
@@ -627,7 +627,7 @@ def activity_stats(user_id):
                 COALESCE(AVG(effort), 0) as avg_effort,
                 COALESCE(SUM(time_seconds), 0) as total_time
             FROM runs WHERE user_id = %s
-            AND date >= CURRENT_DATE - INTERVAL '84 days'
+            AND date::date >= CURRENT_DATE - INTERVAL '84 days'
             GROUP BY date_trunc('week', date::date)
             ORDER BY date_trunc('week', date::date) ASC
         """, (user_id,))
@@ -656,7 +656,7 @@ def activity_stats(user_id):
                 date_trunc('week', date::date) as week,
                 COALESCE(SUM(effort * time_seconds / 60.0), 0) as load
             FROM runs WHERE user_id = %s
-            AND date >= CURRENT_DATE - INTERVAL '84 days'
+            AND date::date >= CURRENT_DATE - INTERVAL '84 days'
             GROUP BY date_trunc('week', date::date)
             ORDER BY date_trunc('week', date::date) ASC
         """, (user_id,))
