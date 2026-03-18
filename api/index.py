@@ -364,6 +364,20 @@ def _build_stats(user_id):
             "exercise_count": len(s["plan"]) if s["plan"] else 0,
         })
 
+    # Advanced stats
+    total_time_seconds = sum(r["time_seconds"] for r in runs)
+    profile = (user_row["profile_data"] or {}) if user_row else {}
+    weight_kg = profile.get("weight_kg", 70)
+    total_hours = total_time_seconds / 3600
+    calories_burned = round(8.0 * weight_kg * total_hours)
+    estimates = {
+        "100m":  profile.get("est_100m_sec"),
+        "400m":  profile.get("est_400m_sec"),
+        "1km":   profile.get("est_1km_sec"),
+        "5km":   profile.get("est_5km_sec"),
+        "10km":  profile.get("est_10km_sec"),
+    }
+
     return {
         "total_km": total_km,
         "total_runs": total_runs,
@@ -386,6 +400,9 @@ def _build_stats(user_id):
         "completed_pct": completed_pct,
         "recent_sessions": recent_formatted,
         "profile_data": user_row["profile_data"] if user_row else None,
+        "total_time_seconds": total_time_seconds,
+        "calories_burned": calories_burned,
+        "estimates": estimates,
     }
 
 

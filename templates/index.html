@@ -873,6 +873,51 @@
       40% { opacity: 1; transform: scale(1); }
     }
 
+    /* ── ADVANCED STATS ── */
+    .advanced-stats-toggle {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 12px 0;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin-top: 8px;
+      transition: color 0.2s;
+    }
+    .advanced-stats-toggle:hover { color: var(--accent); }
+
+    .estimates-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 0;
+    }
+
+    .estimate-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .estimate-dist { color: var(--muted); }
+
+    .estimate-time {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .estimates-note {
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
     /* ── BOTTOM NAV ── */
     .bottom-nav {
       display: none;
@@ -1015,28 +1060,51 @@
               <div class="stat-card">
                 <div class="stat-label">Streak</div>
                 <div class="stat-value accent" id="stat-streak">-</div>
-                <div class="stat-sub">days</div>
+                <div class="stat-sub">dias</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Best Pace</div>
+                <div class="stat-label">Mejor Pace</div>
                 <div class="stat-value" id="stat-best-pace">-</div>
                 <div class="stat-sub">min/km</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Avg Pace (last 5)</div>
+                <div class="stat-label">Pace promedio (ult. 5)</div>
                 <div class="stat-value" id="stat-avg-pace5">-</div>
                 <div class="stat-sub">min/km</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">This Week</div>
+                <div class="stat-label">Esta semana</div>
                 <div class="stat-value" id="stat-week-km">-</div>
                 <div class="stat-sub" id="stat-week-sub">km</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Last Session</div>
+                <div class="stat-label">Ultima sesion</div>
                 <div class="stat-value" id="stat-last-session">-</div>
-                <div class="stat-sub" id="stat-last-sub">days ago</div>
+                <div class="stat-sub" id="stat-last-sub">dias</div>
               </div>
+            </div>
+
+            <!-- Calories + total time -->
+            <div class="stats-grid" style="margin-top:10px;">
+              <div class="stat-card">
+                <div class="stat-label">Calorias estimadas</div>
+                <div class="stat-value" id="stat-calories">0</div>
+                <div class="stat-sub">kcal</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Tiempo total</div>
+                <div class="stat-value" id="stat-total-time">0</div>
+                <div class="stat-sub">horas</div>
+              </div>
+            </div>
+
+            <!-- Collapsible estimates -->
+            <div class="advanced-stats-toggle" onclick="toggleAdvancedStats()">
+              Ver rendimiento estimado
+              <span id="toggle-arrow">+</span>
+            </div>
+            <div class="advanced-stats" id="advanced-stats" style="display:none;">
+              <div id="estimates-content"></div>
             </div>
           </div>
 
@@ -1392,16 +1460,18 @@
     document.getElementById('stat-week-km').textContent = s.week_km ?? 0;
 
     const prevSub = s.prev_week_km != null
-      ? `vs ${s.prev_week_km} km last week`
-      : 'km this week';
+      ? `vs ${s.prev_week_km} km semana anterior`
+      : 'km esta semana';
     document.getElementById('stat-week-sub').textContent = prevSub;
 
     if (s.last_session_days != null) {
       document.getElementById('stat-last-session').textContent = s.last_session_days;
       const sub = document.getElementById('stat-last-sub');
-      sub.textContent = 'days ago';
+      sub.textContent = 'dias';
       sub.className = 'stat-sub' + (s.last_session_alert ? ' alert' : '');
     }
+
+    renderAdvancedStats(s);
 
     // Race
     const raceDisplay = document.getElementById('race-display');
@@ -1440,6 +1510,54 @@
     } else {
       container.innerHTML = '<div class="empty-state">Sin sesiones de IA aun. Pide un plan a tu entrenadora.</div>';
     }
+  }
+
+  function toggleAdvancedStats() {
+    const panel = document.getElementById('advanced-stats');
+    const arrow = document.getElementById('toggle-arrow');
+    const visible = panel.style.display !== 'none';
+    panel.style.display = visible ? 'none' : 'block';
+    arrow.textContent = visible ? '+' : '-';
+  }
+
+  function renderAdvancedStats(stats) {
+    document.getElementById('stat-calories').textContent = stats.calories_burned ?? 0;
+    const hours = stats.total_time_seconds
+      ? (stats.total_time_seconds / 3600).toFixed(1)
+      : '0';
+    document.getElementById('stat-total-time').textContent = hours;
+
+    const est = stats.estimates || {};
+    const hasAny = Object.values(est).some(v => v != null);
+    const content = document.getElementById('estimates-content');
+
+    if (!hasAny) {
+      content.innerHTML = `
+        <p class="estimates-note" style="padding-top:8px;">
+          Completa tu perfil con el coach para ver tus estimados de rendimiento.
+        </p>`;
+      return;
+    }
+
+    const rows = [
+      { key: '100m',  label: '100m' },
+      { key: '400m',  label: '400m' },
+      { key: '1km',   label: '1 km' },
+      { key: '5km',   label: '5 km' },
+      { key: '10km',  label: '10 km' },
+    ];
+
+    content.innerHTML = `
+      <div class="estimates-grid">
+        ${rows.map(r => `
+          <div class="estimate-row">
+            <span class="estimate-dist">${r.label}</span>
+            <span class="estimate-time">${est[r.key] ? formatSeconds(est[r.key]) : '--'}</span>
+          </div>
+        `).join('')}
+      </div>
+      <p class="estimates-note">Tiempos calculados segun tu perfil. Se actualizan con tu progreso.</p>
+    `;
   }
 
   async function openPendingSession(sessionId) {
@@ -1595,9 +1713,9 @@
   function renderTrackingForm(plan) {
     const form = document.getElementById('tracking-form');
     form.innerHTML = plan.map((item, i) => `
-      <div class="tracking-item">
+      <div class="tracking-item tracking-exercise" data-index="${i}">
         <div style="flex:1;">
-          <div class="tracking-label">${item.label}</div>
+          <div class="tracking-label exercise-label">${item.label}</div>
           <div class="tracking-type-badge">${item.type}</div>
         </div>
         <div class="time-input-group">
@@ -1625,15 +1743,19 @@
   async function saveResults() {
     if (!pendingSessionId || !pendingPlan) return;
 
-    const results = pendingPlan.map((item, i) => {
-      const mins = parseInt(document.getElementById(`track-min-${i}`)?.value) || 0;
-      const secs = parseInt(document.getElementById(`track-sec-${i}`)?.value) || 0;
-      const totalSeconds = (mins * 60) + secs;
-      return {
-        label: item.label,
-        time_seconds: totalSeconds,
-        time: `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`,
-      };
+    const exercises = document.querySelectorAll('.tracking-exercise');
+    const results = [];
+    exercises.forEach((ex, i) => {
+      const minInput = document.querySelector(`#track-min-${i}`);
+      const secInput = document.querySelector(`#track-sec-${i}`);
+      const mins = parseInt(minInput?.value) || 0;
+      const secs = parseInt(secInput?.value) || 0;
+      results.push({
+        exercise_index: i,
+        label: ex.querySelector('.exercise-label')?.textContent || `Ejercicio ${i + 1}`,
+        time_seconds: (mins * 60) + secs,
+        time: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
+      });
     });
 
     const res = await fetch('/api/session-results', {
