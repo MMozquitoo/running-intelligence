@@ -1142,6 +1142,16 @@
 </div>
 
 <script>
+// ─── FETCH WRAPPER (logs 404s for debugging) ─────────────────
+const _fetch = window.fetch.bind(window);
+window.fetch = async function(url, opts) {
+  const res = await _fetch(url, opts);
+  if (res.status === 404) {
+    console.error(`[404] ${opts?.method || 'GET'} ${url}`);
+  }
+  return res;
+};
+
 // ─── STATE ───────────────────────────────────────────────────
 let currentUser = null;
 let allUsers = [];
@@ -1213,8 +1223,6 @@ async function loadDashboard() {
   cooperTests = await cRes.json();
 
   renderHome();
-  renderGoals();
-  loadGoals();
   renderCooperHistory();
 
   if (document.getElementById('tab-activity').classList.contains('active')) {
@@ -1482,14 +1490,6 @@ function renderGoals() {
     document.getElementById('days-remaining-sub').textContent =
       d > 0 ? 'days remaining' : d === 0 ? 'Today' : 'Race passed';
   }
-
-  const est = stats.estimates || {};
-  const dists = [['100m','100 m'],['400m','400 m'],['1km','1 km'],['5km','5 km'],['10km','10 km']];
-  const hasData = Object.values(est).some(Boolean);
-  const tbody = document.getElementById('perf-targets-body');
-  tbody.innerHTML = hasData
-    ? dists.map(([k,l]) => `<tr><td>${l}</td><td>${fmtTime(est[k])}</td></tr>`).join('')
-    : '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);font-size:12px;padding:16px 0">No profile data</td></tr>';
 
   const profile = stats.profile_data || {};
   const goal = profile.weekly_goal || 0;
@@ -1825,6 +1825,7 @@ function showTab(name) {
   const nav = document.getElementById(`nav-${name}`);
   if (nav) nav.classList.add('active');
   if (name === 'activity') renderCharts();
+  if (name === 'goals') { renderGoals(); loadGoals(); }
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────

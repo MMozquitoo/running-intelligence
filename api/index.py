@@ -101,6 +101,15 @@ def get_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
+def _strip_fences(text):
+    """Strip markdown code fences that models sometimes add around JSON."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-z]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text.rstrip())
+    return text.strip()
+
+
 def init_db():
     conn = get_conn()
     c = conn.cursor()
@@ -995,7 +1004,7 @@ Only include distances where you have data or a standard. All values in seconds.
             max_tokens=300,
             messages=[{"role": "user", "content": prompt}]
         )
-        goals_json = json.loads(response.content[0].text)
+        goals_json = json.loads(_strip_fences(response.content[0].text))
         goals = goals_json.get("goals", {})
         for dist_key, target_secs in goals.items():
             c.execute("""
@@ -1098,7 +1107,7 @@ Rules:
             max_tokens=800,
             messages=[{"role": "user", "content": prompt}]
         )
-        parsed = json.loads(response.content[0].text)
+        parsed = json.loads(_strip_fences(response.content[0].text))
         return jsonify({"ok": True, "parsed": parsed})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
