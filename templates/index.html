@@ -890,6 +890,40 @@
       letter-spacing: 0.04em;
       padding: 32px 0;
     }
+    /* ── HAMBURGER MENU ── */
+    .hamburger-menu { display: none; position: relative; }
+
+    @media (min-width: 769px) {
+      .hamburger-menu { display: block; }
+      .bottom-nav { display: none !important; }
+    }
+
+    .hamburger-btn {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px; cursor: pointer; color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s;
+    }
+    .hamburger-btn:hover { border-color: rgba(255,255,255,0.3); }
+
+    .hamburger-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 6px; min-width: 180px;
+      z-index: 200; backdrop-filter: blur(20px);
+    }
+
+    .dropdown-item {
+      display: block; width: 100%; padding: 10px 14px;
+      border-radius: 8px; border: none; background: none;
+      color: var(--text-secondary); font-size: 13px; font-weight: 500;
+      text-align: left; cursor: pointer; transition: all 0.15s;
+    }
+    .dropdown-item:hover { background: var(--accent-bg); color: var(--text); }
+    .dropdown-item.active { color: var(--text); font-weight: 600; }
+
+    .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
     /* ── HISTORY TAB ── */
     .tab-header { margin-bottom: 16px; }
     .tab-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
@@ -959,6 +993,24 @@
   <header id="desktop-header">
     <div class="header-logo">RUNNING <span>INTELLIGENCE</span></div>
     <select id="desktop-user-select" onchange="switchUser(this.value)"></select>
+    <div class="hamburger-menu" id="hamburger-menu">
+      <button class="hamburger-btn" onclick="toggleHamburger()" id="hamburger-btn">
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="hamburger-dropdown" id="hamburger-dropdown" style="display:none">
+        <button class="dropdown-item active" id="dd-home" onclick="showTab('home'); closeHamburger()">Home</button>
+        <button class="dropdown-item" id="dd-activity" onclick="showTab('activity'); closeHamburger()">Activity</button>
+        <button class="dropdown-item" id="dd-history" onclick="showTab('history'); closeHamburger()">History</button>
+        <button class="dropdown-item" id="dd-cooper" onclick="showTab('cooper'); closeHamburger()">Cooper</button>
+        <button class="dropdown-item" id="dd-goals" onclick="showTab('goals'); closeHamburger()">Goals</button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item" onclick="openModal(); closeHamburger()">Add Session</button>
+      </div>
+    </div>
   </header>
 
   <main>
@@ -2205,10 +2257,27 @@ function showTab(name) {
   document.getElementById(`tab-${name}`).classList.add('active');
   const nav = document.getElementById(`nav-${name}`);
   if (nav) nav.classList.add('active');
+  document.querySelectorAll('.dropdown-item').forEach(b => b.classList.remove('active'));
+  const ddBtn = document.getElementById('dd-' + name);
+  if (ddBtn) ddBtn.classList.add('active');
   if (name === 'activity') loadActivity();
   if (name === 'history') loadHistory();
   if (name === 'goals') { renderGoals(); loadGoals(); }
 }
+
+function toggleHamburger() {
+  const dd = document.getElementById('hamburger-dropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function closeHamburger() {
+  document.getElementById('hamburger-dropdown').style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('hamburger-menu');
+  if (menu && !menu.contains(e.target)) closeHamburger();
+});
 
 // ─── HELPERS ──────────────────────────────────────────────────
 function formatSeconds(seconds) {
