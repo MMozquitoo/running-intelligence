@@ -1399,6 +1399,7 @@ async function loadActivity() {
     ]);
     const actData = await actRes.json();
     const statsData = await statsRes.json();
+    console.log('[activity] full response:', JSON.stringify(actData));
     console.log('[activity] activity-stats response:', actData);
     console.log('[activity] stats response:', statsData);
     console.log('[activity] weekly:', actData.weekly);
