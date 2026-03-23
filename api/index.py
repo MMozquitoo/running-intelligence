@@ -1434,7 +1434,7 @@ def generate_weekly_plan():
     lang = coaching["language"]
 
     system_prompt = f"""You are an elite athletics coach specialized in middle and long distance runners.
-Language for ALL output: {lang}. Every single word of your response must be in {lang}. No exceptions.
+CRITICAL LANGUAGE RULE: Your ENTIRE response must be in {lang.upper()}. Every single field value in the JSON must be written in {lang.upper()}. This includes session_label, warmup, main_block, cooldown, tactical_note, coach_note, week_summary, series labels — EVERYTHING. Writing in any other language is a critical failure.
 No emojis. Respond ONLY with valid JSON.
 
 ATHLETE PROFILE:
@@ -1503,7 +1503,13 @@ Only include days from AVAILABLE DAYS. series_detail only for interval/tempo ses
             model="claude-haiku-4-5-20251001",
             max_tokens=4000,
             system=system_prompt,
-            messages=[{"role": "user", "content": f"Generate a weekly training plan for {user_name}. Available days: {available_days}. Objective: {objetivo}. Intensity: {intensidad}."}]
+            messages=[{"role": "user", "content": (
+                f"Génère un plan d'entraînement hebdomadaire pour {user_name}. Jours disponibles: {available_days}. Objectif: {objetivo}. Intensité: {intensidad}. RÉPONDS UNIQUEMENT EN FRANÇAIS."
+                if lang == "french" else
+                f"Generate a weekly training plan for {user_name}. Available days: {available_days}. Objective: {objetivo}. Intensity: {intensidad}. RESPOND ONLY IN ENGLISH."
+                if lang == "english" else
+                f"Generate a weekly training plan for {user_name}. Available days: {available_days}. Objective: {objetivo}. Intensity: {intensidad}."
+            )}]
         )
         plan_data = json.loads(_strip_fences(response.content[0].text))
 
