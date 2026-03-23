@@ -488,6 +488,8 @@ def _build_stats(user_id):
             pace_secs = int(parts[0]) * 60 + int(parts[1])
             speed_ms = 1000 / pace_secs
             vo2max = round(speed_ms * 210.938 - 48.673, 1)
+            if vo2max < 10 or vo2max > 85:
+                vo2max = None
         except Exception:
             pass
 
@@ -1333,3 +1335,159 @@ def api_get_training_sessions(user_id):
         rows.append(row)
     c.close(); conn.close()
     return jsonify(rows)
+
+
+# ─────────────────────────────────────────
+# WEEKLY PLAN
+# ─────────────────────────────────────────
+
+@app.route("/api/weekly-plan/<int:user_id>")
+def api_get_weekly_plan(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        SELECT plan FROM training_sessions
+        WHERE user_id = %s AND template_key = 'weekly_plan'
+        ORDER BY created_at DESC LIMIT 1
+    """, (user_id,))
+    row = c.fetchone()
+    c.close(); conn.close()
+    if row and row["plan"]:
+        return jsonify({"plan": row["plan"]})
+    return jsonify({"plan": None})
+
+
+@app.route("/api/generate-weekly-plan", methods=["POST"])
+def generate_weekly_plan():
+    d = request.get_json()
+    user_id = d.get("user_id")
+    available_days = d.get("available_days", [])
+    objetivo = d.get("objetivo", "resistencia")
+    intensidad = d.get("intensidad", "normal")
+
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("SELECT name, profile_data, race_date FROM users WHERE id = %s", (user_id,))
+    user_row = c.fetchone()
+    if not user_row:
+        c.close(); conn.close()
+        return jsonify({"error": "User not found"}), 404
+
+    profile_data = user_row["profile_data"] or {}
+    user_name = user_row["name"]
+    race_date = user_row["race_date"]
+
+    c.execute("""
+        SELECT date, type, distance, pace, effort, notes
+        FROM runs WHERE user_id = %s ORDER BY date DESC LIMIT 10
+    """, (user_id,))
+    recent_runs = [dict(r) for r in c.fetchall()]
+
+    c.execute("""
+        SELECT distance_key, target_seconds FROM user_goals WHERE user_id = %s
+    """, (user_id,))
+    goals = {r["distance_key"]: r["target_seconds"] for r in c.fetchall()}
+
+    c.execute("""
+        SELECT vo2max, fitness_level FROM cooper_tests
+        WHERE user_id = %s ORDER BY date DESC LIMIT 1
+    """, (user_id,))
+    cooper_row = c.fetchone()
+
+    c.close(); conn.close()
+
+    history_lines = []
+    for r in recent_runs:
+        line = f"{r['date']} | {r['type']}"
+        if r["distance"]: line += f" | {r['distance']}km"
+        if r["pace"] and r["pace"] != "-": line += f" | {r['pace']}/km"
+        if r["effort"]: line += f" | RPE {r['effort']}"
+        if r["notes"]: line += f" | {r['notes'][:60]}"
+        history_lines.append(line)
+    history_str = "\n".join(history_lines) if history_lines else "Sin sesiones registradas."
+
+    days_str = ", ".join(available_days) if available_days else "Lun, Mié, Vie"
+    goals_str = json.dumps(goals) if goals else "Sin metas definidas"
+    cooper_str = f"VO2max {cooper_row['vo2max']} ({cooper_row['fitness_level']})" if cooper_row else "Sin test Cooper"
+    race_str = f"Carrera objetivo: {race_date}" if race_date else "Sin carrera objetivo"
+
+    obj_map = {
+        "resistencia": "construir resistencia base",
+        "ritmo": "mejorar el ritmo de competicion",
+        "carrera": "preparar una carrera proxima"
+    }
+    int_map = {
+        "suave": "semana de recuperacion o carga baja",
+        "normal": "semana de carga normal",
+        "fuerte": "semana de carga alta o choque"
+    }
+
+    system_prompt = """Eres un coach de running experto. Sin emojis. Responde SOLO con JSON valido sin texto adicional.
+
+Genera un plan de entrenamiento semanal personalizado basado en el perfil y historial del atleta.
+
+Responde UNICAMENTE con este JSON:
+{
+  "week_summary": "Descripcion breve del enfoque de la semana (1-2 oraciones)",
+  "days": [
+    {
+      "day": "Lunes",
+      "type": "run",
+      "session_label": "Rodaje suave",
+      "distance_km": 8,
+      "pace_target": "5:30-6:00",
+      "exercises": [
+        "10 min calentamiento al 65% FCM",
+        "5 km a ritmo conversacional",
+        "10 min vuelta a la calma"
+      ],
+      "coach_note": "Sesion de recuperacion activa. Mantener esfuerzo bajo.",
+      "effort": 5
+    }
+  ]
+}
+
+Tipos validos: run, intervals, technique, circuit, rest.
+Solo incluir los dias disponibles. Tipo rest solo si el atleta necesita recuperacion entre dias duros.
+Adaptar la carga al nivel y al historial reciente."""
+
+    user_prompt = f"""Atleta: {user_name}
+Perfil: {json.dumps(profile_data)}
+Historial reciente:
+{history_str}
+Metas: {goals_str}
+Condicion fisica: {cooper_str}
+{race_str}
+
+Dias disponibles: {days_str}
+Objetivo de la semana: {obj_map.get(objetivo, objetivo)}
+Intensidad: {int_map.get(intensidad, intensidad)}
+
+Genera el plan semanal."""
+
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1500,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+        plan = json.loads(_strip_fences(response.content[0].text))
+    except Exception as e:
+        return jsonify({"error": f"AI error: {str(e)}"}), 500
+
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+    c2.execute("""
+        INSERT INTO training_sessions (user_id, plan, template_key, status)
+        VALUES (%s, %s, 'weekly_plan', 'pending') RETURNING id
+    """, (user_id, json.dumps(plan)))
+    session_id = c2.fetchone()["id"]
+    conn2.commit(); c2.close(); conn2.close()
+
+    return jsonify({"plan": plan, "session_id": session_id})
