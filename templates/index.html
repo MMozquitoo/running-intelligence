@@ -1558,41 +1558,53 @@
     <!-- PLAN -->
     <div id="tab-plan" class="tab-content">
 
-      <div class="plan-config-card">
-        <div class="section-title" style="margin-top:0">Configurar semana</div>
+      <!-- Estado 1: Configurador -->
+      <div id="plan-configurator">
+        <div class="section-title">Esta semana</div>
 
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Días disponibles</div>
-        <div class="days-selector">
-          <button class="day-toggle active" data-day="Lun">Lun</button>
-          <button class="day-toggle" data-day="Mar">Mar</button>
-          <button class="day-toggle active" data-day="Mié">Mié</button>
-          <button class="day-toggle" data-day="Jue">Jue</button>
-          <button class="day-toggle active" data-day="Vie">Vie</button>
-          <button class="day-toggle" data-day="Sáb">Sáb</button>
-          <button class="day-toggle" data-day="Dom">Dom</button>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
+          <div class="stat-label" style="margin-bottom:12px">Días disponibles</div>
+          <div id="day-selector" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
         </div>
 
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Objetivo</div>
-        <select id="plan-objetivo" class="plan-select">
-          <option value="resistencia">Resistencia base</option>
-          <option value="ritmo">Mejorar ritmo</option>
-          <option value="carrera">Preparar carrera</option>
-        </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+          <div class="field-group" style="margin:0">
+            <label>Objetivo</label>
+            <select id="plan-objetivo">
+              <option value="mejorar_marca_5k_10k">Mejorar 5k/10k</option>
+              <option value="preparar_carrera">Preparar carrera</option>
+              <option value="base_aerobica">Base aeróbica</option>
+              <option value="maximo_rendimiento">Máximo rendimiento</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin:0">
+            <label>Intensidad</label>
+            <select id="plan-intensidad">
+              <option value="suave">Suave</option>
+              <option value="normal" selected>Normal</option>
+              <option value="fuerte">Fuerte</option>
+            </select>
+          </div>
+        </div>
 
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Intensidad</div>
-        <select id="plan-intensidad" class="plan-select">
-          <option value="suave">Suave</option>
-          <option value="normal" selected>Normal</option>
-          <option value="fuerte">Fuerte</option>
-        </select>
-
-        <button class="btn-primary" onclick="generateWeeklyPlan()" style="margin-top:4px">Generar plan</button>
-        <div id="plan-loading" class="plan-loading" style="display:none">Generando tu plan personalizado...</div>
+        <button class="btn-primary" id="btn-generate-plan" onclick="generateWeeklyPlan()">Generar plan</button>
+        <div id="plan-loading" class="plan-loading" style="display:none">Generando tu plan...</div>
       </div>
 
-      <div id="plan-result" style="display:none">
-        <div id="plan-summary" class="plan-summary"></div>
-        <div id="plan-days"></div>
+      <!-- Estado 2: Plan activo -->
+      <div id="plan-active" style="display:none">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div class="stat-label">Plan activo</div>
+            <button onclick="resetPlan()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;text-decoration:underline">Nuevo plan</button>
+          </div>
+          <div id="plan-summary" style="font-size:13px;line-height:1.6;color:var(--text-secondary)"></div>
+          <div style="display:flex;gap:16px;margin-top:10px">
+            <div><span id="plan-total-km" style="font-size:20px;font-weight:300">—</span> <span style="font-size:11px;color:var(--text-muted)">km total</span></div>
+            <div><span id="plan-quality" style="font-size:20px;font-weight:300">—</span> <span style="font-size:11px;color:var(--text-muted)">sesiones calidad</span></div>
+          </div>
+        </div>
+        <div id="plan-days-list"></div>
       </div>
 
     </div>
@@ -2915,25 +2927,43 @@ async function sendChat() {
 }
 
 // ─── PLAN SEMANAL ─────────────────────────────────────────────
-let savedPlan = null;
 let planLoaded = false;
 
-function getSelectedDays() {
-  return Array.from(document.querySelectorAll('.day-toggle.active')).map(b => b.dataset.day);
+const SESSION_TYPE_COLORS = {
+  intervals: 'rgba(255,255,255,0.9)',
+  tempo:     'rgba(255,255,255,0.7)',
+  fartlek:   'rgba(255,255,255,0.6)',
+  run:       'rgba(255,255,255,0.35)',
+  recovery:  'rgba(255,255,255,0.2)',
+  strength:  'rgba(255,255,255,0.25)',
+  rest:      'rgba(255,255,255,0.1)',
+};
+
+const DAYS_CONFIG = [
+  {key: 'Mon', label: 'L'},
+  {key: 'Tue', label: 'M'},
+  {key: 'Wed', label: 'X'},
+  {key: 'Thu', label: 'J'},
+  {key: 'Fri', label: 'V'},
+  {key: 'Sat', label: 'S'},
+  {key: 'Sun', label: 'D'},
+];
+
+function initDaySelector() {
+  const el = document.getElementById('day-selector');
+  if (!el || el.children.length) return;
+  el.innerHTML = DAYS_CONFIG.map(d => `
+    <button class="type-btn" data-day="${d.key}" onclick="toggleDay(this)"
+            style="padding:8px 4px;font-size:12px;font-weight:600;text-align:center">
+      ${d.label}
+    </button>`).join('');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.day-toggle').forEach(btn => {
-    btn.addEventListener('click', () => btn.classList.toggle('active'));
-  });
-  const chatInput = document.getElementById('chat-input');
-  if (chatInput) {
-    chatInput.addEventListener('input', () => {
-      chatInput.style.height = 'auto';
-      chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-    });
-  }
-});
+function toggleDay(btn) { btn.classList.toggle('active'); }
+
+function getSelectedDays() {
+  return Array.from(document.querySelectorAll('#day-selector .type-btn.active')).map(b => b.dataset.day);
+}
 
 async function loadSavedPlan() {
   if (planLoaded) return;
@@ -2941,87 +2971,158 @@ async function loadSavedPlan() {
   try {
     const res = await fetch(`/api/weekly-plan/${currentUser.id}`);
     const data = await res.json();
-    if (data.plan) renderWeeklyPlan(data.plan);
+    if (data.ok && data.plan && data.plan.days) renderWeeklyPlan(data.plan);
   } catch(e) {}
 }
 
 async function generateWeeklyPlan() {
   const days = getSelectedDays();
-  if (!days.length) { showToast('Selecciona al menos un día', true); return; }
-  const objetivo = document.getElementById('plan-objetivo').value;
-  const intensidad = document.getElementById('plan-intensidad').value;
+  if (days.length < 2) { showToast('Selecciona al menos 2 días'); return; }
 
-  const loadingEl = document.getElementById('plan-loading');
-  const resultEl  = document.getElementById('plan-result');
-  loadingEl.style.display = 'block';
-  resultEl.style.display = 'none';
+  document.getElementById('btn-generate-plan').style.display = 'none';
+  document.getElementById('plan-loading').style.display = 'block';
 
   try {
     const res = await fetch('/api/generate-weekly-plan', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ user_id: currentUser.id, available_days: days, objetivo, intensidad })
+      body: JSON.stringify({
+        user_id: currentUser.id,
+        available_days: days,
+        objetivo: document.getElementById('plan-objetivo').value,
+        intensidad: document.getElementById('plan-intensidad').value,
+      })
     });
     const data = await res.json();
-    if (data.error) { showToast(data.error, true); return; }
-    renderWeeklyPlan(data.plan);
-    planLoaded = true;
+    if (data.ok && data.plan) {
+      renderWeeklyPlan(data.plan);
+    } else {
+      showToast('Error generando el plan', true);
+    }
   } catch(e) {
-    showToast('Error al generar el plan', true);
+    showToast('Error de conexión', true);
   } finally {
-    loadingEl.style.display = 'none';
+    document.getElementById('btn-generate-plan').style.display = 'block';
+    document.getElementById('plan-loading').style.display = 'none';
   }
 }
 
 function renderWeeklyPlan(plan) {
-  const resultEl = document.getElementById('plan-result');
-  const summaryEl = document.getElementById('plan-summary');
-  const daysEl = document.getElementById('plan-days');
+  document.getElementById('plan-summary').textContent = plan.week_summary || '';
+  document.getElementById('plan-total-km').textContent = plan.total_km ?? '—';
+  document.getElementById('plan-quality').textContent = plan.quality_sessions ?? '—';
 
-  summaryEl.textContent = plan.week_summary || '';
+  const container = document.getElementById('plan-days-list');
+  container.innerHTML = (plan.days || []).map((day, i) => {
+    const color = SESSION_TYPE_COLORS[day.type] || 'rgba(255,255,255,0.3)';
+    const isRest = day.type === 'rest';
+    const hasSeries = day.series_detail && day.series_detail.length > 0;
+    const shortDay = day.day_short || (day.day || '').slice(0, 3).toUpperCase();
+    const meta = [
+      day.distance_km ? day.distance_km + ' km' : null,
+      day.duration_min ? day.duration_min + ' min' : null,
+      day.zones || null
+    ].filter(Boolean).join(' · ');
+    const dayJson = JSON.stringify(day).replace(/"/g, '&quot;');
 
-  const typeLabels = { run: 'Rodaje', intervals: 'Intervalos', technique: 'Técnica', circuit: 'Circuito', rest: 'Descanso' };
-
-  daysEl.innerHTML = (plan.days || []).map((day, i) => {
-    const badgeClass = day.type || 'run';
-    const label = typeLabels[day.type] || day.type;
-    const meta = [day.distance_km ? `${day.distance_km} km` : null, day.pace_target ? `Ritmo: ${day.pace_target}/km` : null].filter(Boolean).join(' · ');
-    const exercises = (day.exercises || []).map(e => `<li>${e}</li>`).join('');
     return `
-      <div class="day-card">
-        <div class="day-card-header">
-          <div class="day-card-day">${day.day}</div>
-          <span class="session-badge ${badgeClass}">${label}</span>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer"
+           onclick="toggleDayDetail('day-${i}')">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;border-radius:8px;background:${color};flex-shrink:0;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:10px;font-weight:700;color:#0a0a0a;letter-spacing:0.03em">${shortDay}</span>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600">${day.session_label || ''}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${meta}</div>
+          </div>
         </div>
-        ${meta ? `<div class="day-card-meta">${meta}</div>` : ''}
-        ${exercises ? `<ul class="day-card-exercises">${exercises}</ul>` : ''}
-        ${day.coach_note ? `<div class="day-card-note">${day.coach_note}</div>` : ''}
-        ${day.type !== 'rest' ? `<button class="btn-secondary" style="width:100%;font-size:12px" onclick="prefillSessionFromPlan(${i})">Registrar sesión</button>` : ''}
-      </div>`;
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span style="font-size:11px;color:var(--text-muted)">RPE ${day.effort_rpe ?? '—'}</span>
+          <svg id="arrow-day-${i}" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" style="transition:transform 0.2s;color:var(--text-muted)">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+
+      <div id="day-${i}" style="display:none;border-top:1px solid var(--border);padding:14px 16px">
+        ${day.warmup ? `
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Calentamiento</div>
+          <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${day.warmup}</div>
+        </div>` : ''}
+        ${day.main_block ? `
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Bloque principal</div>
+          <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${day.main_block}</div>
+        </div>` : ''}
+        ${hasSeries ? `
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Series</div>
+          ${day.series_detail.map(s => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:13px;color:var(--text-secondary)">${s.label}${s.distance_m ? ' · ' + s.distance_m + 'm' : ''}</span>
+              <div style="text-align:right">
+                <div style="font-size:13px;font-weight:500">${s.pace || '—'}</div>
+                <div style="font-size:11px;color:var(--text-muted)">${s.recovery || ''} · RPE ${s.rpe || '—'}</div>
+              </div>
+            </div>`).join('')}
+        </div>` : ''}
+        ${day.cooldown ? `
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Vuelta a la calma</div>
+          <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${day.cooldown}</div>
+        </div>` : ''}
+        ${day.tactical_note ? `
+        <div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Nota del coach</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--text-secondary);font-style:italic">${day.tactical_note}</div>
+        </div>` : ''}
+        ${!isRest ? `
+        <button class="btn-secondary" style="width:100%;margin-top:4px"
+                onclick="prefillSessionFromPlan(${dayJson})">
+          Registrar esta sesión
+        </button>` : ''}
+      </div>
+    </div>`;
   }).join('');
 
-  savedPlan = plan;
-  resultEl.style.display = 'block';
+  document.getElementById('plan-configurator').style.display = 'none';
+  document.getElementById('plan-active').style.display = 'block';
 }
 
-function prefillSessionFromPlan(dayIndex) {
-  if (!savedPlan || !savedPlan.days) return;
-  const day = savedPlan.days[dayIndex];
+function toggleDayDetail(id) {
+  const el = document.getElementById(id);
+  const idx = id.split('-')[1];
+  const arrow = document.getElementById(`arrow-day-${idx}`);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function prefillSessionFromPlan(day) {
   openModal();
   setMode('manual');
-  selectedType = day.type || 'run';
+  selectedType = day.type === 'recovery' ? 'run' : (day.type || 'run');
   document.querySelectorAll('#type-selector .type-btn').forEach(btn =>
     btn.classList.toggle('active', btn.dataset.type === selectedType)
   );
   if (day.distance_km) document.getElementById('add-distance').value = day.distance_km;
-  if (day.effort) {
-    document.getElementById('add-effort').value = day.effort;
-    document.getElementById('effort-val').textContent = day.effort;
+  if (day.effort_rpe) {
+    document.getElementById('add-effort').value = day.effort_rpe;
+    document.getElementById('effort-val').textContent = day.effort_rpe;
   }
   const noteParts = [];
-  if (day.exercises && day.exercises.length) noteParts.push(day.exercises.join('\n'));
-  if (day.coach_note) noteParts.push('Coach: ' + day.coach_note);
-  if (noteParts.length) document.getElementById('add-notes').value = noteParts.join('\n\n');
+  if (day.main_block) noteParts.push(day.main_block);
+  if (day.tactical_note) noteParts.push('Coach: ' + day.tactical_note);
+  document.getElementById('add-notes').value = noteParts.join('\n\n');
+}
+
+function resetPlan() {
+  document.getElementById('plan-active').style.display = 'none';
+  document.getElementById('plan-configurator').style.display = 'block';
+  planLoaded = false;
 }
 
 // ─── COOPER TOGGLE ────────────────────────────────────────────
@@ -3053,7 +3154,7 @@ function showTab(name) {
   if (name === 'history') loadHistory();
   if (name === 'goals') { renderGoals(); loadGoals(); }
   if (name === 'coach') { loadChatHistory(); setTimeout(scrollChatToBottom, 50); }
-  if (name === 'plan') loadSavedPlan();
+  if (name === 'plan') { initDaySelector(); loadSavedPlan(); }
 }
 
 function toggleHamburger() {
