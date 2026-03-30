@@ -1361,6 +1361,26 @@
       cursor: pointer; transition: all 0.2s;
     }
     .btn-delete:hover { background: rgba(255,68,68,0.1); }
+    /* ── TRAIN TOGETHER ── */
+    .partner-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 12px; border-radius: 20px;
+      border: 1px solid var(--border); background: var(--surface-2);
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s; user-select: none;
+    }
+    .partner-chip.selected {
+      border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.08);
+    }
+    .partner-chip .chip-status {
+      width: 14px; height: 14px; display: flex; align-items: center; justify-content: center;
+    }
+    .partner-chip .chip-spinner {
+      width: 12px; height: 12px; border: 1.5px solid rgba(255,255,255,0.2);
+      border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     .sheet-run-delete {
       background: none; border: none; color: rgba(255,68,68,0.5); cursor: pointer;
       padding: 2px 4px; border-radius: 4px; display: flex; align-items: center;
@@ -1631,6 +1651,29 @@
         </div>
         <div id="plan-days-list"></div>
         <div id="plan-week-notes" style="display:none"></div>
+
+        <!-- Train Together -->
+        <div id="train-together-wrap" style="display:none;margin-top:12px">
+          <button id="btn-train-together"
+                  onclick="openTrainTogether()"
+                  style="width:100%;padding:12px;background:none;border:1px dashed rgba(255,255,255,0.15);
+                         border-radius:12px;color:var(--text-secondary);font-size:13px;font-weight:500;
+                         cursor:pointer;transition:border-color 0.15s">
+            + Entraînement ensemble
+          </button>
+          <div id="train-together-panel" style="display:none;margin-top:10px;
+               background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+            <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+                        color:var(--text-muted);margin-bottom:12px">Sélectionner les partenaires</div>
+            <div id="partner-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+            <button id="btn-generate-partners" onclick="generatePartnerPlans()"
+                    style="display:none;width:100%;padding:11px;background:rgba(255,255,255,0.06);
+                           border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text);
+                           font-size:13px;font-weight:600;cursor:pointer">
+              Générer les plans
+            </button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -3315,6 +3358,106 @@ function renderWeeklyPlan(plan) {
 
   document.getElementById('plan-configurator').style.display = 'none';
   document.getElementById('plan-active').style.display = 'block';
+  document.getElementById('train-together-wrap').style.display = 'block';
+  document.getElementById('train-together-panel').style.display = 'none';
+  document.getElementById('btn-train-together').style.display = 'block';
+}
+
+// ─── TRAIN TOGETHER ───────────────────────────────────────────
+let trainPartners = [];          // [{id, name, profile_data}] — available partners
+let selectedPartners = new Set(); // ids of selected partners
+let currentPlanParams = {};       // {available_days, objetivo, intensidad}
+
+async function openTrainTogether() {
+  document.getElementById('btn-train-together').style.display = 'none';
+  const panel = document.getElementById('train-together-panel');
+  panel.style.display = 'block';
+
+  if (!trainPartners.length) {
+    const users = await fetch('/api/users').then(r => r.json());
+    trainPartners = users.filter(u => u.id !== currentUser.id);
+  }
+  renderPartnerChips();
+}
+
+function renderPartnerChips() {
+  const container = document.getElementById('partner-chips');
+  container.innerHTML = trainPartners.map(p => {
+    const sel = selectedPartners.has(p.id);
+    const status = p._status || '';
+    let statusHtml = '';
+    if (status === 'loading') {
+      statusHtml = '<span class="chip-status"><span class="chip-spinner"></span></span>';
+    } else if (status === 'ok') {
+      statusHtml = '<span class="chip-status" style="color:#4ade80;font-size:14px">✓</span>';
+    } else if (status === 'error') {
+      statusHtml = '<span class="chip-status" style="color:#f87171;font-size:14px">✗</span>';
+    }
+    return `<div class="partner-chip ${sel ? 'selected' : ''}"
+                 id="chip-${p.id}"
+                 onclick="togglePartnerChip(${p.id})">
+      ${p.name}${statusHtml}
+    </div>`;
+  }).join('');
+
+  const hasSelection = selectedPartners.size > 0;
+  const allDone = trainPartners.every(p => !selectedPartners.has(p.id) || p._status === 'ok' || p._status === 'error');
+  const anyLoading = trainPartners.some(p => p._status === 'loading');
+  const btn = document.getElementById('btn-generate-partners');
+  btn.style.display = hasSelection && !allDone ? 'block' : 'none';
+  btn.disabled = anyLoading;
+}
+
+function togglePartnerChip(id) {
+  const p = trainPartners.find(p => p.id === id);
+  if (p?._status) return; // already processed
+  if (selectedPartners.has(id)) selectedPartners.delete(id);
+  else selectedPartners.add(id);
+  renderPartnerChips();
+}
+
+async function generatePartnerPlans() {
+  const days      = Array.from(document.querySelectorAll('#day-selector .type-btn.active')).map(b => b.dataset.day);
+  const objetivo  = document.getElementById('plan-objetivo').value;
+  const intensidad = document.getElementById('plan-intensidad').value;
+
+  // Build full partner profiles to send as context
+  const allSelected = trainPartners.filter(p => selectedPartners.has(p.id));
+  const currentUserProfile = { id: currentUser.id, name: currentUser.name, profile_data: {} };
+
+  // Mark all selected as loading
+  allSelected.forEach(p => { p._status = 'loading'; });
+  renderPartnerChips();
+
+  await Promise.all(allSelected.map(async partner => {
+    // Partners context = everyone except the one being generated for
+    const others = [currentUserProfile, ...allSelected.filter(q => q.id !== partner.id)];
+    try {
+      const res = await fetch('/api/generate-weekly-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: partner.id,
+          available_days: days,
+          objetivo,
+          intensidad,
+          partners_profiles: others
+        })
+      });
+      const data = await res.json();
+      partner._status = data.ok ? 'ok' : 'error';
+    } catch {
+      partner._status = 'error';
+    }
+    renderPartnerChips();
+  }));
+
+  const failed = allSelected.filter(p => p._status === 'error');
+  if (failed.length === 0) {
+    showToast('Plans générés pour tous les partenaires');
+  } else {
+    showToast(`Erreur pour : ${failed.map(p => p.name).join(', ')}`, true);
+  }
 }
 
 function toggleDayDetail(id) {
@@ -3347,6 +3490,10 @@ function prefillSessionFromPlan(day) {
 function resetPlan() {
   document.getElementById('plan-active').style.display = 'none';
   document.getElementById('plan-configurator').style.display = 'block';
+  document.getElementById('train-together-wrap').style.display = 'none';
+  document.getElementById('train-together-panel').style.display = 'none';
+  trainPartners = [];
+  selectedPartners.clear();
   planLoaded = false;
 }
 

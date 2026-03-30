@@ -1387,13 +1387,55 @@ def api_get_weekly_plan(user_id):
     })
 
 
+def _build_partners_section(partners_profiles):
+    """Build the TRAINING PARTNERS system prompt section from a list of partner profile dicts."""
+    if not partners_profiles:
+        return ""
+    lines = []
+    names = [p.get("name", "?") for p in partners_profiles]
+    lines.append(f"\nTRAINING PARTNERS THIS WEEK: {', '.join(names)}")
+    for p in partners_profiles:
+        p_name = p.get("name", "Unknown")
+        p_data = p.get("profile_data") or {}
+        p_coaching = USER_COACHING_PROFILES.get(p_name, {
+            "level_description": p_data.get("level", "intermediate"),
+            "coaching_style": "balanced and supportive",
+            "push_factor": "moderate",
+            "special_notes": "",
+        })
+        lines.append(
+            f"  - {p_name}: age {p_data.get('age','?')}, {p_data.get('weight_kg','?')} kg | "
+            f"level: {p_coaching['level_description']} | "
+            f"push: {p_coaching['push_factor']} | "
+            f"notes: {p_coaching.get('special_notes','')}"
+        )
+    lines.append("""
+RELATIVE ADAPTATION RULES (shared-training week):
+- Athletes train the same days and same general objective.
+- BUT each plan MUST respect the individual level, age, and coaching style.
+- For sessions done together on the track:
+  * Give each athlete their OWN target pace in sec/lap.
+  * The faster athlete leads, the slower has their own zone.
+  * Example in main_block: "Adrien: 1:45/lap — Cristian: 2:10/lap, même circuit."
+- For total weekly volume: do NOT equalize — respect each athlete's capacity.
+  * Beginner (21 yo): reduce 20-30 % vs advanced athletes.
+  * Female athlete: adjust for recovery cycle.
+- RPE coherence: same perceived effort produces different paces per athlete.
+  Keep RPE consistent across partners so they feel the same relative effort.
+- In the tactical_note of EVERY shared session add exactly:
+  "Session partagée avec [partner name(s)]: ton allure cible est X sec/lap, la leur est Y sec/lap. Même effort, pas le même temps."
+""")
+    return "\n".join(lines)
+
+
 @app.route("/api/generate-weekly-plan", methods=["POST"])
 def generate_weekly_plan():
     d = request.get_json()
-    user_id        = d.get("user_id")
-    available_days = d.get("available_days", [])
-    objetivo       = d.get("objetivo", "mejorar marca")
-    intensidad     = d.get("intensidad", "normal")
+    user_id           = d.get("user_id")
+    available_days    = d.get("available_days", [])
+    objetivo          = d.get("objetivo", "mejorar marca")
+    intensidad        = d.get("intensidad", "normal")
+    partners_profiles = d.get("partners_profiles", [])
 
     conn = get_conn(); c = conn.cursor()
     c.execute("SELECT name, profile_data FROM users WHERE id = %s", (user_id,))
@@ -1494,7 +1536,7 @@ INTENSIVE PLAN RULES — apply ONLY when WEEK INTENSITY contains "intense" / "in
 - Populate week_notes with one per-session tactical rationale explaining the physiological goal and key execution cue.
 
 IMPORTANT FOR {user_name.upper()}: {coaching['special_notes']}
-
+{_build_partners_section(partners_profiles)}
 Respond ONLY with this JSON structure, no other text:
 {{
   "week_summary": "2-3 sentence overview of the week focus and goals",
