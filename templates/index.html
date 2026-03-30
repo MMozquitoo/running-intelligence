@@ -1342,6 +1342,12 @@
       cursor: pointer; transition: all 0.2s;
     }
     .btn-delete:hover { background: rgba(255,68,68,0.1); }
+    .sheet-run-delete {
+      background: none; border: none; color: rgba(255,68,68,0.5); cursor: pointer;
+      padding: 2px 4px; border-radius: 4px; display: flex; align-items: center;
+      transition: color 0.15s; flex-shrink: 0;
+    }
+    .sheet-run-delete:hover { color: #f87171; }
   </style>
 </head>
 <body>
@@ -1377,7 +1383,7 @@
         <button class="dropdown-item" id="dd-history" onclick="showTab('history'); closeHamburger()">History</button>
         <button class="dropdown-item" id="dd-goals" onclick="showTab('goals'); closeHamburger()">Goals</button>
         <div class="dropdown-divider"></div>
-        <button class="dropdown-item" onclick="openModal(); closeHamburger()">Add Session</button>
+        <button class="dropdown-item" onclick="openModal(); closeHamburger()">Ajouter une séance</button>
       </div>
     </div>
   </header>
@@ -1389,7 +1395,7 @@
     <button class="desktop-nav-item" id="dnav-plan" onclick="showTab('plan')">Plan</button>
     <button class="desktop-nav-item" id="dnav-coach" onclick="showTab('coach')">Coach</button>
     <button class="desktop-nav-item" id="dnav-goals" onclick="showTab('goals')">Goals</button>
-    <button class="desktop-nav-item" onclick="openModal()" style="color:var(--text);border:1px solid var(--border);margin-left:8px">+ Sesión</button>
+    <button class="desktop-nav-item" onclick="openModal()" style="color:var(--text);border:1px solid var(--border);margin-left:8px">+ Séance</button>
   </nav>
 
   <main>
@@ -1464,7 +1470,7 @@
         </div>
         <div class="pill">
           <div class="pill-label">VO2max est.</div>
-          <div class="pill-value" id="act-vo2" title="Completa un Test de Cooper para obtener tu VO2max real.">—</div>
+          <div class="pill-value" id="act-vo2" title="Complète un Test de Cooper pour obtenir ton VO2max réel.">—</div>
         </div>
         <div class="pill">
           <div class="pill-label">Recovery</div>
@@ -1472,7 +1478,7 @@
           <div class="pill-sub">hours</div>
         </div>
         <div class="pill">
-          <div class="pill-label">Week Load <span title="Carga semanal = Esfuerzo percibido × duración en minutos. Indica cuán dura fue tu semana." style="cursor:help;opacity:0.6">ⓘ</span></div>
+          <div class="pill-label">Week Load <span title="Charge hebdomadaire = Effort perçu × durée en minutes. Indique l'intensité de ta semaine." style="cursor:help;opacity:0.6">ⓘ</span></div>
           <div class="pill-value" id="act-load">—</div>
         </div>
       </div>
@@ -1516,22 +1522,22 @@
         </div>
         <div id="cooper-section-body" style="display:none;padding:16px;border-top:1px solid var(--border)">
           <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:16px">
-            El Test de Cooper consiste en correr la mayor distancia posible en 12 minutos. Permite estimar tu VO2max y nivel de condición cardiovascular.
+            Le Test de Cooper consiste à courir la plus grande distance possible en 12 minutes. Il permet d'estimer ton VO2max et ton niveau de condition cardiovasculaire.
           </div>
-          <div class="section-title" style="margin-top:0">Nuevo test</div>
+          <div class="section-title" style="margin-top:0">Nouveau test</div>
           <div class="field-group">
-            <label>Fecha</label>
+            <label>Date</label>
             <input type="date" id="cooper-date">
           </div>
           <div class="field-group">
-            <label>Distancia en 12 min (metros)</label>
+            <label>Distance en 12 min (mètres)</label>
             <input type="number" id="cooper-dist" placeholder="2400" min="0" step="10">
           </div>
           <div class="field-group">
-            <label>Notas</label>
-            <textarea id="cooper-notes" rows="2" placeholder="Opcional..."></textarea>
+            <label>Notes</label>
+            <textarea id="cooper-notes" rows="2" placeholder="Optionnel..."></textarea>
           </div>
-          <button class="btn-primary" onclick="submitCooper()">Calcular</button>
+          <button class="btn-primary" onclick="submitCooper()">Calculer</button>
           <div class="cooper-result" id="cooper-result">
             <div class="cooper-result-grid">
               <div class="cooper-stat">
@@ -1539,17 +1545,17 @@
                 <div class="cooper-stat-value" id="res-vo2">—</div>
               </div>
               <div class="cooper-stat">
-                <div class="cooper-stat-label">Nivel</div>
+                <div class="cooper-stat-label">Niveau</div>
                 <div class="cooper-stat-value" id="res-level" style="font-size:14px">—</div>
               </div>
               <div class="cooper-stat">
-                <div class="cooper-stat-label">Proy. 10k</div>
+                <div class="cooper-stat-label">Proj. 10k</div>
                 <div class="cooper-stat-value" id="res-10k">—</div>
               </div>
             </div>
           </div>
-          <div class="section-title" style="margin-top:20px">Historial</div>
-          <div class="list-card" id="cooper-history"><div class="loading">Cargando...</div></div>
+          <div class="section-title" style="margin-top:20px">Historique</div>
+          <div class="list-card" id="cooper-history"><div class="loading">Chargement...</div></div>
         </div>
       </div>
 
@@ -1560,48 +1566,48 @@
 
       <!-- Estado 1: Configurador -->
       <div id="plan-configurator">
-        <div class="section-title">Esta semana</div>
+        <div class="section-title">Cette semaine</div>
 
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
-          <div class="stat-label" style="margin-bottom:12px">Días disponibles</div>
+          <div class="stat-label" style="margin-bottom:12px">Jours disponibles</div>
           <div id="day-selector" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
           <div class="field-group" style="margin:0">
-            <label>Objetivo</label>
+            <label>Objectif</label>
             <select id="plan-objetivo">
-              <option value="mejorar_marca_5k_10k">Mejorar 5k/10k</option>
-              <option value="preparar_carrera">Preparar carrera</option>
-              <option value="base_aerobica">Base aeróbica</option>
-              <option value="maximo_rendimiento">Máximo rendimiento</option>
+              <option value="ameliorer_chrono_5k_10k">Améliorer 5k/10k</option>
+              <option value="preparer_course">Préparer une course</option>
+              <option value="base_aerobie">Base aérobie</option>
+              <option value="performance_maximale">Performance maximale</option>
             </select>
           </div>
           <div class="field-group" style="margin:0">
-            <label>Intensidad</label>
+            <label>Intensité</label>
             <select id="plan-intensidad">
-              <option value="suave">Suave</option>
-              <option value="normal" selected>Normal</option>
-              <option value="fuerte">Fuerte</option>
+              <option value="legere">Légère</option>
+              <option value="normale" selected>Normale</option>
+              <option value="intense">Intense</option>
             </select>
           </div>
         </div>
 
-        <button class="btn-primary" id="btn-generate-plan" onclick="generateWeeklyPlan()">Generar plan</button>
-        <div id="plan-loading" class="plan-loading" style="display:none">Generando tu plan...</div>
+        <button class="btn-primary" id="btn-generate-plan" onclick="generateWeeklyPlan()">Générer le plan</button>
+        <div id="plan-loading" class="plan-loading" style="display:none">Génération en cours...</div>
       </div>
 
       <!-- Estado 2: Plan activo -->
       <div id="plan-active" style="display:none">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-            <div class="stat-label">Plan activo</div>
-            <button onclick="resetPlan()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;text-decoration:underline">Nuevo plan</button>
+            <div class="stat-label">Plan actif</div>
+            <button onclick="resetPlan()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;text-decoration:underline">Nouveau plan</button>
           </div>
           <div id="plan-summary" style="font-size:13px;line-height:1.6;color:var(--text-secondary)"></div>
           <div style="display:flex;gap:16px;margin-top:10px">
             <div><span id="plan-total-km" style="font-size:20px;font-weight:300">—</span> <span style="font-size:11px;color:var(--text-muted)">km total</span></div>
-            <div><span id="plan-quality" style="font-size:20px;font-weight:300">—</span> <span style="font-size:11px;color:var(--text-muted)">sesiones calidad</span></div>
+            <div><span id="plan-quality" style="font-size:20px;font-weight:300">—</span> <span style="font-size:11px;color:var(--text-muted)">séances qualité</span></div>
           </div>
         </div>
         <div id="plan-days-list"></div>
@@ -1612,11 +1618,11 @@
     <!-- COACH -->
     <div id="tab-coach" class="tab-content">
       <div id="chat-messages" class="chat-messages">
-        <div class="loading" id="chat-loading">Cargando historial...</div>
+        <div class="loading" id="chat-loading">Chargement de l'historique...</div>
       </div>
       <div class="chat-input-bar">
-        <textarea id="chat-input" rows="1" placeholder="Cuéntame cómo fue tu entreno..." onkeydown="chatKeydown(event)"></textarea>
-        <button class="chat-send-btn" onclick="sendChat()">Enviar</button>
+        <textarea id="chat-input" rows="1" placeholder="Raconte-moi ton entraînement..." onkeydown="chatKeydown(event)"></textarea>
+        <button class="chat-send-btn" onclick="sendChat()">Envoyer</button>
       </div>
     </div>
 
@@ -1639,7 +1645,7 @@
 
       <div class="goal-card">
         <div class="goal-label">Target Race</div>
-        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">Establece tu próxima carrera objetivo. La app usará esta fecha para mostrar el conteo regresivo y ajustar tus metas de progreso.</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">Définis ta prochaine course objectif. L'app utilisera cette date pour afficher le compte à rebours et ajuster tes objectifs de progression.</div>
         <div class="goal-input-row">
           <input type="date" id="goal-race-date">
           <button class="btn-secondary" onclick="saveRaceDate()">Set</button>
@@ -1702,7 +1708,7 @@
   <div class="modal">
 
     <div class="modal-header">
-      <span id="modal-title">Add Session</span>
+      <span id="modal-title">Ajouter une séance</span>
       <button class="modal-close" onclick="closeModal()">
         <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1721,7 +1727,7 @@
       <div class="field-group">
         <textarea id="quick-text" placeholder="e.g. 6x150m around 28-30 sec each, 1 min rest. Warmup 12 min, cooldown 10 min. Hard session." rows="5"></textarea>
       </div>
-      <button class="btn-primary" id="btn-parse" onclick="parseSession()">Analizar con IA</button>
+      <button class="btn-primary" id="btn-parse" onclick="parseSession()">Analyser avec l'IA</button>
       <div id="parse-loading" style="display:none" class="parse-loading">Analyzing your session...</div>
     </div>
 
@@ -1737,7 +1743,7 @@
           <button class="type-btn" data-type="technique" onclick="selectType(this)">Technique</button>
         </div>
         <div id="intervals-hint" style="display:none;font-size:12px;color:var(--text-secondary);line-height:1.6;margin-top:8px">
-          Puedes agregar las repeticiones después de guardar la sesión desde el historial.
+          Tu peux ajouter les répétitions après avoir enregistré la séance depuis l'historique.
         </div>
       </div>
 
@@ -1788,7 +1794,7 @@
         </div>
       </div>
 
-      <button class="btn-primary" id="btn-save-session" onclick="saveSession()">Save Session</button>
+      <button class="btn-primary" id="btn-save-session" onclick="saveSession()">Enregistrer la séance</button>
     </div>
 
   </div>
@@ -1866,7 +1872,7 @@ function switchUser(id) {
   chatLoaded = false;
   planLoaded = false;
   savedPlan = null;
-  document.getElementById('chat-messages').innerHTML = renderChatMessage('assistant', 'Hola. Soy tu coach. Cuéntame cómo fue tu último entreno o qué necesitas.');
+  document.getElementById('chat-messages').innerHTML = renderChatMessage('assistant', 'Bonjour. Je suis ton coach. Dis-moi comment s\'est passé ton dernier entraînement ou ce dont tu as besoin.');
   loadDashboard();
 }
 
@@ -1933,8 +1939,8 @@ function renderHome() {
   const el = document.getElementById('recent-list');
   if (!recent.length) {
     el.innerHTML = `<div class="empty-state" style="padding:28px 16px;text-align:center">
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Aún no tienes sesiones registradas.</div>
-      <button class="btn-primary" style="width:auto;padding:10px 24px" onclick="openModal()">Agregar primera sesión</button>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Aucune séance enregistrée pour l'instant.</div>
+      <button class="btn-primary" style="width:auto;padding:10px 24px" onclick="openModal()">Ajouter une séance</button>
     </div>`;
     return;
   }
@@ -2180,7 +2186,7 @@ function renderActivityCharts(data) {
         },
         tooltip: {
           callbacks: {
-            label: ctx => `${ctx.label}: ${ctx.parsed} sesiones`
+            label: ctx => `${ctx.label}: ${ctx.parsed} séance${ctx.parsed > 1 ? 's' : ''}`
           }
         }
       }
@@ -2308,9 +2314,9 @@ function closeModal() {
   document.body.style.overflow = '';
   if (editingRunId) {
     editingRunId = null;
-    document.getElementById('modal-title').textContent = 'Add Session';
+    document.getElementById('modal-title').textContent = 'Ajouter une séance';
     const btn = document.getElementById('btn-save-session');
-    btn.textContent = 'Save Session';
+    btn.textContent = 'Enregistrer la séance';
     btn.onclick = saveSession;
   }
 }
@@ -2373,11 +2379,11 @@ async function parseSession() {
       fillFormFromParsed(data.parsed);
       setMode('manual');
     } else {
-      showToast('Could not parse. Fill in manually.');
+      showToast('Analyse impossible. Remplis manuellement.');
       setMode('manual');
     }
   } catch(e) {
-    showToast('Parse error. Fill in manually.');
+    showToast('Erreur d\'analyse. Remplis manuellement.');
     setMode('manual');
   } finally {
     document.getElementById('btn-parse').style.display = 'block';
@@ -2484,7 +2490,7 @@ async function saveSession() {
   if (res.ok) {
     closeModal();
     loadDashboard();
-    showToast('Session saved');
+    showToast('Séance enregistrée');
   } else {
     alert(data.error || 'Error saving session');
   }
@@ -2554,7 +2560,7 @@ async function saveReps() {
     body: JSON.stringify({reps})
   });
   closeRepsModal();
-  showToast('Reps saved');
+  showToast('Répétitions enregistrées');
 }
 
 // ─── GOALS (dynamic) ─────────────────────────────────────────
@@ -2600,7 +2606,7 @@ function renderGoalsTable(data) {
   const baseNote = hasAiGoals
     ? 'Goals calculated from your recent performance.'
     : 'Goals based on World Athletics standards for your profile. Train to unlock personalized goals.';
-  document.getElementById('goals-note').textContent = baseNote + ' Verde = por debajo de tu meta (excelente). Amarillo = cerca (dentro del 10%). Rojo = por encima del estándar — es tu punto de partida para mejorar.';
+  document.getElementById('goals-note').textContent = baseNote + ' Vert = en dessous de ton objectif (excellent). Jaune = proche (dans les 10%). Rouge = au-dessus du standard — c\'est ton point de départ pour progresser.';
 }
 
 // ─── HISTORY ─────────────────────────────────────────────────
@@ -2674,7 +2680,7 @@ function openEditModal(runId) {
   editingRunId = runId;
   document.getElementById('modal-add').style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  document.getElementById('modal-title').textContent = 'Edit Session';
+  document.getElementById('modal-title').textContent = 'Modifier la séance';
   setMode('manual');
   selectedType = run.type;
   document.querySelectorAll('#type-selector .type-btn').forEach(btn =>
@@ -2691,7 +2697,7 @@ function openEditModal(runId) {
   document.getElementById('effort-val').textContent = run.effort || 5;
   document.getElementById('add-notes').value = run.notes || '';
   const btn = document.getElementById('btn-save-session');
-  btn.textContent = 'Update Session';
+  btn.textContent = 'Mettre à jour';
   btn.onclick = updateSession;
 }
 
@@ -2716,15 +2722,15 @@ async function updateSession() {
   closeModal();
   loadHistory();
   loadDashboard();
-  showToast('Session updated');
+  showToast('Séance mise à jour');
 }
 
 async function deleteRun(runId) {
-  if (!confirm('Delete this session?')) return;
+  if (!confirm('Supprimer cette séance ?')) return;
   await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
   loadHistory();
   loadDashboard();
-  showToast('Session deleted');
+  showToast('Séance supprimée');
 }
 
 // ─── LONG PRESS + BUTTON ─────────────────────────────────────
@@ -2813,8 +2819,13 @@ async function openProfileSheet() {
           <span class="sheet-run-date">${r.date}</span>
           <span class="sheet-run-detail">${r.type}</span>
           <span class="sheet-run-stat">${r.distance ? r.distance + ' km' : r.time_seconds ? Math.round(r.time_seconds / 60) + ' min' : '—'}</span>
+          <button class="sheet-run-delete" onclick="deleteRunFromSheet(${r.id})" title="Supprimer">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
         </div>`).join('')
-    : '<div class="empty-state" style="padding:12px 0">No sessions yet</div>';
+    : '<div class="empty-state" style="padding:12px 0">Aucune séance enregistrée</div>';
 
   document.getElementById('sheet-users').innerHTML = usersData.map(u => `
     <button class="sheet-user-btn ${u.id === currentUser.id ? 'current' : ''}"
@@ -2822,7 +2833,7 @@ async function openProfileSheet() {
       <div class="sheet-user-initial">${u.name[0].toUpperCase()}</div>
       <div class="sheet-user-info">
         <div class="sheet-user-name">${u.name}</div>
-        <div class="sheet-user-meta">${u.id === currentUser.id ? 'Current user' : 'Tap to switch'}</div>
+        <div class="sheet-user-meta">${u.id === currentUser.id ? 'Utilisateur actuel' : 'Appuyer pour changer'}</div>
       </div>
     </button>`).join('');
 
@@ -2835,6 +2846,14 @@ function closeProfileSheet() {
   const overlay = document.getElementById('sheet-overlay');
   sheet.classList.remove('open');
   setTimeout(() => { overlay.style.display = 'none'; }, 300);
+}
+
+async function deleteRunFromSheet(runId) {
+  if (!confirm('Supprimer cette séance ?')) return;
+  await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
+  showToast('Séance supprimée');
+  loadDashboard();
+  openProfileSheet();
 }
 
 function selectUserFromSheet(userId) {
@@ -2873,13 +2892,13 @@ async function loadChatHistory() {
     const res = await fetch(`/api/chat-history/${currentUser.id}`);
     const msgs = await res.json();
     if (!msgs.length) {
-      el.innerHTML = renderChatMessage('assistant', 'Hola. Soy tu coach. Cuéntame cómo fue tu último entreno o qué necesitas.');
+      el.innerHTML = renderChatMessage('assistant', 'Bonjour. Je suis ton coach. Dis-moi comment s\'est passé ton dernier entraînement ou ce dont tu as besoin.');
     } else {
       el.innerHTML = msgs.map(m => renderChatMessage(m.role, m.content)).join('');
     }
     scrollChatToBottom();
   } catch(e) {
-    el.innerHTML = '<div class="chat-typing">Error al cargar historial.</div>';
+    el.innerHTML = '<div class="chat-typing">Erreur lors du chargement de l\'historique.</div>';
   }
 }
 
@@ -2920,7 +2939,7 @@ async function sendChat() {
     }
   } catch(e) {
     document.getElementById(typingId)?.remove();
-    el.insertAdjacentHTML('beforeend', renderChatMessage('assistant', 'Error de conexión. Intenta de nuevo.'));
+    el.insertAdjacentHTML('beforeend', renderChatMessage('assistant', 'Erreur de connexion. Réessaie.'));
   }
   scrollChatToBottom();
 }
@@ -2975,11 +2994,10 @@ const PLAN_INTENSIDADES = {
 };
 
 function getCurrentUserLang() {
-  if (!currentUser) return 'es';
+  if (!currentUser) return 'fr';
   const name = currentUser.name;
-  if (name === 'Adrien' || name === 'Laurine') return 'fr';
-  if (name === 'Cristian') return 'es';
-  return 'es';
+  if (name === 'Adrien' || name === 'Laurine' || name === 'Cristian') return 'fr';
+  return 'fr';
 }
 
 function initDaySelector() {
@@ -3035,7 +3053,7 @@ async function loadSavedPlan() {
 
 async function generateWeeklyPlan() {
   const days = getSelectedDays();
-  if (days.length < 2) { showToast('Selecciona al menos 2 días'); return; }
+  if (days.length < 2) { showToast('Sélectionne au moins 2 jours'); return; }
 
   document.getElementById('btn-generate-plan').style.display = 'none';
   document.getElementById('plan-loading').style.display = 'block';
@@ -3055,10 +3073,10 @@ async function generateWeeklyPlan() {
     if (data.ok && data.plan) {
       renderWeeklyPlan(data.plan);
     } else {
-      showToast('Error generando el plan', true);
+      showToast('Erreur lors de la génération du plan', true);
     }
   } catch(e) {
-    showToast('Error de conexión', true);
+    showToast('Erreur de connexion', true);
   } finally {
     document.getElementById('btn-generate-plan').style.display = 'block';
     document.getElementById('plan-loading').style.display = 'none';
@@ -3107,12 +3125,12 @@ function renderWeeklyPlan(plan) {
       <div id="day-${i}" style="display:none;border-top:1px solid var(--border);padding:14px 16px">
         ${day.warmup ? `
         <div style="margin-bottom:12px">
-          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Calentamiento</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Échauffement</div>
           <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${day.warmup}</div>
         </div>` : ''}
         ${day.main_block ? `
         <div style="margin-bottom:12px">
-          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Bloque principal</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Bloc principal</div>
           <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${day.main_block}</div>
         </div>` : ''}
         ${hasSeries ? `
@@ -3129,18 +3147,18 @@ function renderWeeklyPlan(plan) {
         </div>` : ''}
         ${day.cooldown ? `
         <div style="margin-bottom:12px">
-          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Vuelta a la calma</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px">Retour au calme</div>
           <div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${day.cooldown}</div>
         </div>` : ''}
         ${day.tactical_note ? `
         <div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:12px">
-          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Nota del coach</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Note du coach</div>
           <div style="font-size:12px;line-height:1.6;color:var(--text-secondary);font-style:italic">${day.tactical_note}</div>
         </div>` : ''}
         ${!isRest ? `
         <button class="btn-secondary" style="width:100%;margin-top:4px"
                 onclick="prefillSessionFromPlan(${dayJson})">
-          Registrar esta sesión
+          Enregistrer cette séance
         </button>` : ''}
       </div>
     </div>`;
@@ -3363,13 +3381,13 @@ init();
     </div>
   </div>
 
-  <div class="sheet-section-title">Recent Sessions</div>
+  <div class="sheet-section-title">Séances récentes</div>
   <div id="sheet-history"></div>
 
-  <div class="sheet-section-title">Switch User</div>
+  <div class="sheet-section-title">Changer d'utilisateur</div>
   <div id="sheet-users"></div>
 
-  <button class="sheet-close-btn" onclick="closeProfileSheet()">Close</button>
+  <button class="sheet-close-btn" onclick="closeProfileSheet()">Fermer</button>
 </div>
 
 </body>

@@ -1434,7 +1434,9 @@ def generate_weekly_plan():
     lang = coaching["language"]
 
     system_prompt = f"""You are an elite athletics coach specialized in middle and long distance runners.
-CRITICAL LANGUAGE RULE: Your ENTIRE response must be in {lang.upper()}. Every single field value in the JSON must be written in {lang.upper()}. This includes session_label, warmup, main_block, cooldown, tactical_note, coach_note, week_summary, series labels — EVERYTHING. Writing in any other language is a critical failure.
+
+CRITICAL LANGUAGE RULE: Your ENTIRE response must be in {lang.upper()}. Every single field value in the JSON must be written in {lang.upper()}. Writing in any other language is a critical failure.
+
 No emojis. Respond ONLY with valid JSON.
 
 ATHLETE PROFILE:
@@ -1455,13 +1457,26 @@ AVAILABLE DAYS THIS WEEK: {json.dumps(available_days)}
 WEEKLY OBJECTIVE: {objetivo}
 WEEK INTENSITY: {intensidad}
 
+UNIT AND SPECIFICITY RULES — MANDATORY:
+- Express ALL distances in 400m track laps AND meters (never km only)
+- Express ALL paces in sec/lap AND sec/100m AND min/km
+- Express ALL heart rate zones as % max HR (never vague descriptions)
+- Every warmup must include progressive lap times (lap 1: 2:30, lap 2: 2:20, etc.)
+- Every cooldown is MANDATORY, minimum 2 easy laps + stretching cues
+- Every interval series must include: reps × distance_m, target time/rep, recovery time, recovery pace
+
+ONE SESSION = ONE OBJECTIVE:
+- Never mix tempo with base endurance in the same main block
+- Never mix speed work with aerobic base
+- If multiple objectives exist, pick the priority one and state why
+
 MANDATORY TRAINING STRUCTURE (adapt to available days):
-1. LONG EASY RUN (1x/week): 14-18 km, Zone 2 (65-72% MHR), progressive last 20-25%
-2. QUALITY SESSION TYPE 1 - VO2max Intervals (1x/week): 800m-1200m series at 90-95% MHR, 1:1 active recovery
-3. QUALITY SESSION TYPE 2 - Tempo/Threshold (1x/week): 20-30 min continuous at 83-88% MHR
-4. FARTLEK (1x/week or alternate with tempo): unstructured pace changes, 40-50 min total, Zone 2 base with 1-3 min accelerations
-5. RECOVERY RUN (1-2x/week): 6-8 km easy, Zone 1
-6. RUNNER-SPECIFIC STRENGTH (1x/week): eccentric work, hip/glutes, running core, light plyometrics
+1. LONG EASY RUN (1x/week): 18-22 laps, Zone 1-2 (65-72% MHR), progressive last 20-25%
+2. VO2max INTERVALS (1x/week): 800m-1200m series at 90-95% MHR, 1:1 active recovery, full rep times
+3. TEMPO/THRESHOLD (1x/week): 20-30 min continuous at 83-88% MHR, pace in sec/lap + sec/100m
+4. FARTLEK (1x/week): 40-50 min total, Zone 2 base with 1-3 min accelerations, lap-by-lap structure
+5. RECOVERY RUN (1-2x/week): 15-20 laps easy, Zone 1
+6. STRENGTH (1x/week): eccentric, hip/glutes, running core, light plyometrics
 
 INTENSITY DISTRIBUTION: 80% Zone 1-2, 20% Zone 3-4
 WEEKLY VOLUME TARGET: 40-50 km
@@ -1471,7 +1486,7 @@ IMPORTANT FOR {user_name.upper()}: {coaching['special_notes']}
 
 Respond ONLY with this JSON structure, no other text:
 {{
-  "week_summary": "2-3 sentence overview of the week's focus and goals",
+  "week_summary": "2-3 sentence overview of the week focus and goals",
   "total_km": 45,
   "quality_sessions": 2,
   "days": [
@@ -1481,21 +1496,27 @@ Respond ONLY with this JSON structure, no other text:
       "type": "run",
       "session_label": "Easy Recovery Run",
       "distance_km": 8,
+      "distance_laps": 20,
       "duration_min": 50,
-      "pace_target": "6:00-6:30",
-      "zones": "Zone 1-2",
+      "pace_target": "6:00-6:30/km",
+      "pace_sec_lap": "144-156 sec/lap",
+      "pace_sec_100m": "36-39 sec/100m",
+      "zones": "Zone 1-2 (65-72% MHR)",
       "effort_rpe": 4,
-      "warmup": "10 min walk + dynamic mobility: leg swings, hip circles, high knees",
-      "main_block": "5 km easy conversational pace.",
-      "cooldown": "5 min walk + static stretching calves, hip flexors, hamstrings",
-      "tactical_note": "Physiological goal: active recovery, increase blood flow, flush lactate from previous session.",
+      "warmup": "2 laps progressive: lap 1 in 2:40, lap 2 in 2:20 + dynamic mobility: leg swings, hip circles, high knees",
+      "main_block": "16 laps at 2:24/lap (36 sec/100m). Conversational pace, nasal breathing.",
+      "cooldown": "2 laps walk/jog + 5 min static stretching: calves, hip flexors, hamstrings",
+      "tactical_note": "Physiological goal: active recovery, increase blood flow, flush lactate.",
+      "coach_note": "Specific motivational note tailored to this athlete personality",
       "series_detail": []
     }}
   ]
 }}
 
 Valid types: run, recovery, intervals, tempo, fartlek, strength, rest.
-Only include days from AVAILABLE DAYS. series_detail only for interval/tempo sessions, otherwise empty array."""
+Only include days from AVAILABLE DAYS.
+series_detail only for interval/tempo sessions:
+[{{"rep": 1, "distance_m": 800, "target_sec": 200, "recovery_sec": 120, "recovery_pace": "jog 2:30/lap"}}]"""
 
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
