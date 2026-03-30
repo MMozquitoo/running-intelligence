@@ -1482,6 +1482,17 @@ INTENSITY DISTRIBUTION: 80% Zone 1-2, 20% Zone 3-4
 WEEKLY VOLUME TARGET: 40-50 km
 CRITICAL RULE: NEVER place two quality sessions on consecutive days.
 
+INTENSIVE PLAN RULES — apply ONLY when WEEK INTENSITY contains "intense" / "intensive" / "fuerte":
+- Use exactly 4 sessions ordered as: Fartlek → VO2max Intervals → Tempo → Long Progressive
+- Minimum 48h rest between each quality session (VO2max and Tempo must not be adjacent)
+- FARTLEK: structure the main_block as timed cycles, e.g. "5 cycles: 3 min base (2:30/lap, 37 sec/100m) + 2 min acceleration (2:08/lap, 32 sec/100m). Smooth transitions, controlled cadence."
+- VO2max: use 4 × 1000m (2.5 laps). Recovery = 2 min active jog with explicit pace (e.g. "2:35/lap"). State total series count clearly.
+- TEMPO: include breathing rhythm pattern (e.g. "3-3 or 4-4 breathing cadence"). Stress that pace must be constant — no negative split, no surge.
+- LONG: add progressive split structure (first 60% at Z1 pace, final 40% at Z2 pace, explicit sec/lap for each phase). Add hydration reminder every 5-6 laps.
+- warmup for ALL sessions in intensive week: 3 progressive laps with explicit times (e.g. lap 1: 2:50, lap 2: 2:35, lap 3: 2:25) + dynamic mobility drills.
+- week_summary must open with the intensity level and week focus, e.g. "INTENSIVE — 80% intensity. Week focused on 5k/10k time improvement. Two quality sessions spaced 48h, complemented with aerobic work and a progressive long run. Total: X km in 4 sessions."
+- Populate week_notes with one per-session tactical rationale explaining the physiological goal and key execution cue.
+
 IMPORTANT FOR {user_name.upper()}: {coaching['special_notes']}
 
 Respond ONLY with this JSON structure, no other text:
@@ -1489,6 +1500,9 @@ Respond ONLY with this JSON structure, no other text:
   "week_summary": "2-3 sentence overview of the week focus and goals",
   "total_km": 45,
   "quality_sessions": 2,
+  "week_notes": [
+    {{"day": "Monday", "note": "Tactical rationale and key execution cue for this session."}}
+  ],
   "days": [
     {{
       "day": "Monday",
@@ -1516,13 +1530,14 @@ Respond ONLY with this JSON structure, no other text:
 Valid types: run, recovery, intervals, tempo, fartlek, strength, rest.
 Only include days from AVAILABLE DAYS.
 series_detail only for interval/tempo sessions:
-[{{"rep": 1, "distance_m": 800, "target_sec": 200, "recovery_sec": 120, "recovery_pace": "jog 2:30/lap"}}]"""
+[{{"rep": 1, "distance_m": 800, "target_sec": 200, "recovery_sec": 120, "recovery_pace": "jog 2:30/lap"}}]
+week_notes: one entry per training day (skip rest days). For normal/easy intensity, week_notes may be an empty array."""
 
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=4000,
+            max_tokens=6000,
             system=system_prompt,
             messages=[{"role": "user", "content": (
                 f"Génère un plan d'entraînement hebdomadaire pour {user_name}. Jours disponibles: {available_days}. Objectif: {objetivo}. Intensité: {intensidad}. RÉPONDS UNIQUEMENT EN FRANÇAIS."

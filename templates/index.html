@@ -1630,6 +1630,7 @@
           </div>
         </div>
         <div id="plan-days-list"></div>
+        <div id="plan-week-notes" style="display:none"></div>
       </div>
 
     </div>
@@ -3280,6 +3281,10 @@ function renderWeeklyPlan(plan) {
           <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Note du coach</div>
           <div style="font-size:12px;line-height:1.6;color:var(--text-secondary);font-style:italic">${day.tactical_note}</div>
         </div>` : ''}
+        ${day.coach_note ? `
+        <div style="border-left:2px solid rgba(255,255,255,0.15);padding:6px 10px;margin-bottom:12px">
+          <div style="font-size:12px;line-height:1.6;color:var(--text-muted);font-style:italic">${day.coach_note}</div>
+        </div>` : ''}
         ${!isRest ? `
         <button class="btn-secondary" style="width:100%;margin-top:4px"
                 onclick="prefillSessionFromPlan(${dayJson})">
@@ -3288,6 +3293,25 @@ function renderWeeklyPlan(plan) {
       </div>
     </div>`;
   }).join('');
+
+  // Week notes (intensive plans)
+  const notes = plan.week_notes || [];
+  const notesEl = document.getElementById('plan-week-notes');
+  if (notes.length > 0) {
+    notesEl.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:4px">
+        <div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px">Notes de séance</div>
+        ${notes.map(n => `
+          <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em">${n.day}</div>
+            <div style="font-size:12px;line-height:1.6;color:var(--text-muted)">${n.note}</div>
+          </div>`).join('')}
+      </div>`;
+    notesEl.style.display = 'block';
+  } else {
+    notesEl.innerHTML = '';
+    notesEl.style.display = 'none';
+  }
 
   document.getElementById('plan-configurator').style.display = 'none';
   document.getElementById('plan-active').style.display = 'block';
