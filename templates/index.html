@@ -385,9 +385,27 @@
       align-items: center;
       justify-content: space-between;
       padding: 13px 0;
+    }
+
+    /* ── SWIPE TO DELETE ── */
+    .swipe-row-wrap {
+      position: relative; overflow: hidden;
       border-bottom: 1px solid var(--border);
     }
-    .session-row:last-child { border-bottom: none; }
+    .swipe-row-wrap:last-child { border-bottom: none; }
+    .swipe-del-btn {
+      position: absolute; right: 0; top: 0; bottom: 0; width: 80px;
+      background: var(--danger); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .swipe-inner {
+      position: relative; background: var(--surface); will-change: transform;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* Home session rows have no card background — use list-card's bg */
+    .swipe-row-wrap .swipe-inner { background: var(--surface); }
 
     .session-info { display: flex; flex-direction: column; gap: 3px; }
 
@@ -1312,6 +1330,7 @@
     .history-card {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 12px; margin-bottom: 8px; overflow: hidden;
+      position: relative;
     }
     .history-card-header {
       display: flex; justify-content: space-between; align-items: center;
@@ -1948,17 +1967,21 @@ function renderHome() {
     const dist = r.distance > 0 ? `${r.distance.toFixed(1)} km` : '—';
     const pace = r.pace && r.pace !== '-' ? `${r.pace} /km` : '';
     return `
-      <div class="session-row">
-        <div class="session-info">
-          <div class="session-type">${r.type}</div>
-          <div class="session-date">${fmtDate(r.date)}</div>
-        </div>
-        <div class="session-right">
-          <div class="session-dist">${dist}</div>
-          ${pace ? `<div class="session-pace">${pace}</div>` : ''}
+      <div class="swipe-row-wrap">
+        <div class="swipe-del-btn" onclick="swipeDeleteRun(${r.id}); event.stopPropagation()">Delete</div>
+        <div class="session-row swipe-inner" id="swipe-inner-${r.id}">
+          <div class="session-info">
+            <div class="session-type">${r.type}</div>
+            <div class="session-date">${fmtDate(r.date)}</div>
+          </div>
+          <div class="session-right">
+            <div class="session-dist">${dist}</div>
+            ${pace ? `<div class="session-pace">${pace}</div>` : ''}
+          </div>
         </div>
       </div>`;
   }).join('');
+  attachSwipeHandlers(el);
 }
 
 function togglePerf() {
@@ -2633,37 +2656,40 @@ function renderHistory() {
   }
   container.innerHTML = filtered.map(run => `
     <div class="history-card" id="run-card-${run.id}">
-      <div class="history-card-header" onclick="toggleRunDetail(${run.id})">
-        <div class="history-card-left">
-          <div class="history-date">${fmtDate(run.date)}</div>
-          <div class="history-type-badge">${run.type}</div>
+      <div class="swipe-del-btn" onclick="swipeDeleteRun(${run.id}); event.stopPropagation()">Delete</div>
+      <div class="swipe-inner" id="swipe-inner-${run.id}">
+        <div class="history-card-header" onclick="toggleRunDetail(${run.id})">
+          <div class="history-card-left">
+            <div class="history-date">${fmtDate(run.date)}</div>
+            <div class="history-type-badge">${run.type}</div>
+          </div>
+          <div class="history-card-right">
+            ${run.distance ? `<span class="history-stat">${run.distance} km</span>` : ''}
+            ${run.pace && run.pace !== '-' ? `<span class="history-stat">${run.pace} /km</span>` : ''}
+            ${run.effort ? `<span class="history-stat">RPE ${run.effort}</span>` : ''}
+            <svg class="expand-arrow" id="arrow-${run.id}" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
         </div>
-        <div class="history-card-right">
-          ${run.distance ? `<span class="history-stat">${run.distance} km</span>` : ''}
-          ${run.pace && run.pace !== '-' ? `<span class="history-stat">${run.pace} /km</span>` : ''}
-          ${run.effort ? `<span class="history-stat">RPE ${run.effort}</span>` : ''}
-          <svg class="expand-arrow" id="arrow-${run.id}" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-      </div>
-      <div class="history-detail" id="detail-${run.id}" style="display:none">
-        ${run.notes ? `<div class="history-notes">${run.notes}</div>` : ''}
-        ${run.reps && run.reps.length > 0 ? `
-          <div class="reps-table">
-            <div class="reps-table-title">Repetitions</div>
-            ${run.reps.map(r => `
-              <div class="rep-table-row">
-                <span class="rep-table-label">Rep ${r.rep_number} &mdash; ${r.distance_m}m</span>
-                <span class="rep-table-time">${formatSeconds(r.time_seconds)}</span>
-              </div>`).join('')}
-          </div>` : ''}
-        <div class="history-actions">
-          <button class="btn-edit" onclick="openEditModal(${run.id})">Edit</button>
-          <button class="btn-delete" onclick="deleteRun(${run.id})">Delete</button>
+        <div class="history-detail" id="detail-${run.id}" style="display:none">
+          ${run.notes ? `<div class="history-notes">${run.notes}</div>` : ''}
+          ${run.reps && run.reps.length > 0 ? `
+            <div class="reps-table">
+              <div class="reps-table-title">Repetitions</div>
+              ${run.reps.map(r => `
+                <div class="rep-table-row">
+                  <span class="rep-table-label">Rep ${r.rep_number} &mdash; ${r.distance_m}m</span>
+                  <span class="rep-table-time">${formatSeconds(r.time_seconds)}</span>
+                </div>`).join('')}
+            </div>` : ''}
+          <div class="history-actions">
+            <button class="btn-edit" onclick="openEditModal(${run.id})">Edit</button>
+          </div>
         </div>
       </div>
     </div>`).join('');
+  attachSwipeHandlers(container);
 }
 
 function toggleRunDetail(runId) {
@@ -2732,6 +2758,105 @@ async function deleteRun(runId) {
   loadDashboard();
   showToast('Séance supprimée');
 }
+
+// ─── SWIPE TO DELETE ─────────────────────────────────────────
+let swipeActiveEl = null;
+
+function getSwipeX(el) {
+  const m = (el.style.transform || '').match(/translateX\((-?[\d.]+)px\)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
+function closeAllSwipes(except) {
+  if (swipeActiveEl && swipeActiveEl !== except) {
+    swipeActiveEl.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+    swipeActiveEl.style.transform = 'translateX(0)';
+    swipeActiveEl = null;
+  }
+}
+
+function initSwipeEl(el) {
+  let startX = 0, startY = 0, baseX = 0, dragging = false, locked = false;
+  const THRESHOLD = 60, MAX = 80;
+
+  el.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    baseX  = getSwipeX(el);
+    dragging = false;
+    locked   = false;
+    el.style.transition = 'none';
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (!dragging) {
+      if (Math.abs(dy) > Math.abs(dx) + 3) { locked = true; return; }
+      if (Math.abs(dx) > 8) {
+        dragging = true;
+        closeAllSwipes(el);
+      }
+    }
+    if (!dragging || locked) return;
+    const newX = Math.max(-MAX, Math.min(0, baseX + dx));
+    el.style.transform = `translateX(${newX}px)`;
+  }, { passive: true });
+
+  el.addEventListener('touchend', () => {
+    if (!dragging) return;
+    const x = getSwipeX(el);
+    el.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+    if (x < -THRESHOLD) {
+      el.style.transform = `translateX(-${MAX}px)`;
+      swipeActiveEl = el;
+    } else {
+      el.style.transform = 'translateX(0)';
+      if (swipeActiveEl === el) swipeActiveEl = null;
+    }
+  });
+}
+
+function attachSwipeHandlers(container) {
+  container.querySelectorAll('.swipe-inner').forEach(initSwipeEl);
+}
+
+async function swipeDeleteRun(runId) {
+  closeAllSwipes(null);
+  if (!confirm('Supprimer cette séance ?')) return;
+
+  const inner = document.getElementById(`swipe-inner-${runId}`);
+  const wrapper = inner?.closest('.swipe-row-wrap, .history-card');
+  if (wrapper) {
+    const h = wrapper.offsetHeight;
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.maxHeight = h + 'px';
+    wrapper.style.transition = 'max-height 0.28s ease, opacity 0.2s ease, margin-bottom 0.28s ease';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      wrapper.style.maxHeight = '0';
+      wrapper.style.opacity = '0';
+      wrapper.style.marginBottom = '0';
+    }));
+    setTimeout(async () => {
+      await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
+      wrapper.remove();
+      loadDashboard();
+      showToast('Séance supprimée');
+    }, 300);
+  } else {
+    await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
+    loadHistory();
+    loadDashboard();
+    showToast('Séance supprimée');
+  }
+}
+
+// Close any open swipe when tapping elsewhere
+document.addEventListener('touchstart', e => {
+  if (swipeActiveEl && !e.target.closest('.swipe-del-btn')) {
+    closeAllSwipes(null);
+  }
+}, { passive: true });
 
 // ─── LONG PRESS + BUTTON ─────────────────────────────────────
 (function() {
