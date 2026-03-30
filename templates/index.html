@@ -1632,6 +1632,12 @@
           </div>
         </div>
 
+        <!-- Option A: partner selection before generating -->
+        <div id="preplan-partners-section" style="display:none;margin-bottom:14px">
+          <div class="stat-label" style="margin-bottom:10px">S'entraîner avec quelqu'un ?</div>
+          <div id="preplan-partner-chips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+
         <button class="btn-primary" id="btn-generate-plan" onclick="generateWeeklyPlan()">Générer le plan</button>
         <div id="plan-loading" class="plan-loading" style="display:none">Génération en cours...</div>
       </div>
@@ -1652,25 +1658,32 @@
         <div id="plan-days-list"></div>
         <div id="plan-week-notes" style="display:none"></div>
 
-        <!-- Train Together -->
-        <div id="train-together-wrap" style="display:none;margin-top:12px">
-          <button id="btn-train-together"
-                  onclick="openTrainTogether()"
-                  style="width:100%;padding:12px;background:none;border:1px dashed rgba(255,255,255,0.15);
-                         border-radius:12px;color:var(--text-secondary);font-size:13px;font-weight:500;
-                         cursor:pointer;transition:border-color 0.15s">
-            + Entraînement ensemble
+        <!-- Training with (result badges) -->
+        <div id="training-with-section" style="display:none;margin-top:10px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                      padding:12px 14px;display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+            <span style="font-size:11px;color:var(--text-muted)">Training with</span>
+            <div id="training-with-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          </div>
+        </div>
+
+        <!-- Option B: invite after plan is active -->
+        <div id="invite-plan-wrap" style="display:none;margin-top:8px">
+          <button id="btn-invite-plan" onclick="openInvitePanel()"
+                  style="width:100%;padding:11px;background:none;border:1px dashed rgba(255,255,255,0.15);
+                         border-radius:12px;color:var(--text-secondary);font-size:13px;font-weight:500;cursor:pointer">
+            + Inviter à ce plan
           </button>
-          <div id="train-together-panel" style="display:none;margin-top:10px;
-               background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div id="invite-panel" style="display:none;margin-top:10px;background:var(--surface);
+               border:1px solid var(--border);border-radius:12px;padding:14px">
             <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
-                        color:var(--text-muted);margin-bottom:12px">Sélectionner les partenaires</div>
-            <div id="partner-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
-            <button id="btn-generate-partners" onclick="generatePartnerPlans()"
-                    style="display:none;width:100%;padding:11px;background:rgba(255,255,255,0.06);
+                        color:var(--text-muted);margin-bottom:10px">Inviter des partenaires</div>
+            <div id="invite-partner-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+            <button id="btn-do-invite" onclick="invitePartners()"
+                    style="display:none;width:100%;padding:10px;background:rgba(255,255,255,0.06);
                            border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text);
                            font-size:13px;font-weight:600;cursor:pointer">
-              Générer les plans
+              Générer leurs plans
             </button>
           </div>
         </div>
@@ -3221,8 +3234,16 @@ async function loadSavedPlan() {
 }
 
 async function generateWeeklyPlan() {
-  const days = getSelectedDays();
+  const days      = getSelectedDays();
+  const objetivo  = document.getElementById('plan-objetivo').value;
+  const intensidad = document.getElementById('plan-intensidad').value;
   if (days.length < 2) { showToast('Sélectionne au moins 2 jours'); return; }
+
+  lastPlanParams = { days, objetivo, intensidad };
+  partnerPlansData = {};
+
+  // partners_profiles context for current user's own plan
+  const selectedPartnerObjs = allPartnerUsers.filter(p => preplanSelected.has(p.id));
 
   document.getElementById('btn-generate-plan').style.display = 'none';
   document.getElementById('plan-loading').style.display = 'block';
@@ -3234,13 +3255,16 @@ async function generateWeeklyPlan() {
       body: JSON.stringify({
         user_id: currentUser.id,
         available_days: days,
-        objetivo: document.getElementById('plan-objetivo').value,
-        intensidad: document.getElementById('plan-intensidad').value,
+        objetivo,
+        intensidad,
+        partners_profiles: selectedPartnerObjs
       })
     });
     const data = await res.json();
     if (data.ok && data.plan) {
       renderWeeklyPlan(data.plan);
+      // Option A: generate plans for pre-selected partners in background
+      _generatePreplanPartners(days, objetivo, intensidad);
     } else {
       showToast('Erreur lors de la génération du plan', true);
     }
@@ -3358,106 +3382,184 @@ function renderWeeklyPlan(plan) {
 
   document.getElementById('plan-configurator').style.display = 'none';
   document.getElementById('plan-active').style.display = 'block';
-  document.getElementById('train-together-wrap').style.display = 'block';
-  document.getElementById('train-together-panel').style.display = 'none';
-  document.getElementById('btn-train-together').style.display = 'block';
+  document.getElementById('invite-plan-wrap').style.display = 'block';
+  document.getElementById('invite-panel').style.display = 'none';
+  document.getElementById('btn-invite-plan').style.display = 'block';
 }
 
 // ─── TRAIN TOGETHER ───────────────────────────────────────────
-let trainPartners = [];          // [{id, name, profile_data}] — available partners
-let selectedPartners = new Set(); // ids of selected partners
-let currentPlanParams = {};       // {available_days, objetivo, intensidad}
+let allPartnerUsers  = [];        // [{id, name, profile_data}] all users except current
+let preplanSelected  = new Set(); // ids selected before generating (Option A)
+let inviteSelected   = new Set(); // ids selected in invite panel (Option B)
+let partnerPlansData = {};        // {userId: {name, plan}}
+let lastPlanParams   = null;      // {days, objetivo, intensidad}
 
-async function openTrainTogether() {
-  document.getElementById('btn-train-together').style.display = 'none';
-  const panel = document.getElementById('train-together-panel');
-  panel.style.display = 'block';
-
-  if (!trainPartners.length) {
-    const users = await fetch('/api/users').then(r => r.json());
-    trainPartners = users.filter(u => u.id !== currentUser.id);
-  }
-  renderPartnerChips();
+// Load (or refresh) the list of other users — called when plan tab opens
+async function loadAllPartnerUsers() {
+  const users = await fetch('/api/users').then(r => r.json()).catch(() => []);
+  allPartnerUsers = users.filter(u => u.id !== currentUser.id);
+  renderPreplanChips();
 }
 
-function renderPartnerChips() {
-  const container = document.getElementById('partner-chips');
-  container.innerHTML = trainPartners.map(p => {
-    const sel = selectedPartners.has(p.id);
-    const status = p._status || '';
-    let statusHtml = '';
-    if (status === 'loading') {
-      statusHtml = '<span class="chip-status"><span class="chip-spinner"></span></span>';
-    } else if (status === 'ok') {
-      statusHtml = '<span class="chip-status" style="color:#4ade80;font-size:14px">✓</span>';
-    } else if (status === 'error') {
-      statusHtml = '<span class="chip-status" style="color:#f87171;font-size:14px">✗</span>';
-    }
-    return `<div class="partner-chip ${sel ? 'selected' : ''}"
-                 id="chip-${p.id}"
-                 onclick="togglePartnerChip(${p.id})">
-      ${p.name}${statusHtml}
-    </div>`;
+// ── Option A: chips in the configurator ──────────────────────
+function renderPreplanChips() {
+  const section = document.getElementById('preplan-partners-section');
+  if (!allPartnerUsers.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  document.getElementById('preplan-partner-chips').innerHTML =
+    allPartnerUsers.map(p => {
+      const sel = preplanSelected.has(p.id);
+      return `<div class="partner-chip ${sel ? 'selected' : ''}"
+                   onclick="togglePreplanPartner(${p.id})">${p.name}</div>`;
+    }).join('');
+}
+
+function togglePreplanPartner(id) {
+  if (preplanSelected.has(id)) preplanSelected.delete(id);
+  else preplanSelected.add(id);
+  renderPreplanChips();
+}
+
+// ── Core helper: generate one partner plan ───────────────────
+async function _generateForPartner(partner, days, objetivo, intensidad, contextPartners) {
+  const res = await fetch('/api/generate-weekly-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: partner.id,
+      available_days: days,
+      objetivo,
+      intensidad,
+      partners_profiles: contextPartners
+    })
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error('failed');
+  return data.plan;
+}
+
+// ── Run partner generations and update "training with" UI ────
+async function _runPartnerGenerations(partners, days, objetivo, intensidad, currentUserObj) {
+  // Show chips in loading state immediately
+  renderTrainingWithChips(partners, 'loading');
+
+  const results = await Promise.allSettled(
+    partners.map(async partner => {
+      const others = [currentUserObj, ...partners.filter(q => q.id !== partner.id)];
+      const plan = await _generateForPartner(partner, days, objetivo, intensidad, others);
+      partnerPlansData[partner.id] = { name: partner.name, plan };
+      renderTrainingWithChips(partners, null);  // re-render with updated statuses
+    })
+  );
+
+  const failed = partners.filter(p => !partnerPlansData[p.id]);
+  if (failed.length) showToast(`Erreur pour : ${failed.map(p => p.name).join(', ')}`, true);
+  else showToast('Plans générés pour tous les partenaires');
+
+  renderTrainingWithChips(partners, null);
+}
+
+function renderTrainingWithChips(partners, forceStatus) {
+  const section = document.getElementById('training-with-section');
+  if (!partners.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  document.getElementById('training-with-chips').innerHTML = partners.map(p => {
+    const done = !!partnerPlansData[p.id];
+    const status = forceStatus || (done ? 'ok' : 'loading');
+    let badge = '';
+    if (status === 'loading') badge = '<span class="chip-status"><span class="chip-spinner"></span></span>';
+    else if (status === 'ok') badge = '<span class="chip-status" style="color:#4ade80;font-size:13px">✓</span>';
+    const clickable = done ? `onclick="showPartnerPlan(${p.id})"` : '';
+    return `<div class="partner-chip ${done ? 'selected' : ''}" ${clickable}>${p.name}${badge}</div>`;
   }).join('');
-
-  const hasSelection = selectedPartners.size > 0;
-  const allDone = trainPartners.every(p => !selectedPartners.has(p.id) || p._status === 'ok' || p._status === 'error');
-  const anyLoading = trainPartners.some(p => p._status === 'loading');
-  const btn = document.getElementById('btn-generate-partners');
-  btn.style.display = hasSelection && !allDone ? 'block' : 'none';
-  btn.disabled = anyLoading;
 }
 
-function togglePartnerChip(id) {
-  const p = trainPartners.find(p => p.id === id);
-  if (p?._status) return; // already processed
-  if (selectedPartners.has(id)) selectedPartners.delete(id);
-  else selectedPartners.add(id);
-  renderPartnerChips();
+// ── Option A: hook into generateWeeklyPlan ───────────────────
+// (called inside the existing generateWeeklyPlan after own plan renders)
+async function _generatePreplanPartners(days, objetivo, intensidad) {
+  const selected = allPartnerUsers.filter(p => preplanSelected.has(p.id));
+  if (!selected.length) return;
+  const currentUserObj = allPartnerUsers.find(u => u.id === currentUser.id)
+    || { id: currentUser.id, name: currentUser.name, profile_data: {} };
+  await _runPartnerGenerations(selected, days, objetivo, intensidad, currentUserObj);
 }
 
-async function generatePartnerPlans() {
-  const days      = Array.from(document.querySelectorAll('#day-selector .type-btn.active')).map(b => b.dataset.day);
-  const objetivo  = document.getElementById('plan-objetivo').value;
-  const intensidad = document.getElementById('plan-intensidad').value;
+// ── Option B: invite after plan is active ────────────────────
+function openInvitePanel() {
+  document.getElementById('btn-invite-plan').style.display = 'none';
+  document.getElementById('invite-panel').style.display = 'block';
+  inviteSelected.clear();
+  renderInviteChips();
+}
 
-  // Build full partner profiles to send as context
-  const allSelected = trainPartners.filter(p => selectedPartners.has(p.id));
-  const currentUserProfile = { id: currentUser.id, name: currentUser.name, profile_data: {} };
+function renderInviteChips() {
+  document.getElementById('invite-partner-chips').innerHTML =
+    allPartnerUsers.map(p => {
+      const sel = inviteSelected.has(p.id);
+      const done = !!partnerPlansData[p.id];
+      let badge = done ? ' <span style="color:#4ade80;font-size:12px">✓</span>' : '';
+      return `<div class="partner-chip ${sel ? 'selected' : ''}" ${done ? 'style="opacity:0.5;pointer-events:none"' : ''}
+                   onclick="toggleInvitePartner(${p.id})">${p.name}${badge}</div>`;
+    }).join('');
+  document.getElementById('btn-do-invite').style.display =
+    inviteSelected.size > 0 ? 'block' : 'none';
+}
 
-  // Mark all selected as loading
-  allSelected.forEach(p => { p._status = 'loading'; });
-  renderPartnerChips();
+function toggleInvitePartner(id) {
+  if (inviteSelected.has(id)) inviteSelected.delete(id);
+  else inviteSelected.add(id);
+  renderInviteChips();
+}
 
-  await Promise.all(allSelected.map(async partner => {
-    // Partners context = everyone except the one being generated for
-    const others = [currentUserProfile, ...allSelected.filter(q => q.id !== partner.id)];
-    try {
-      const res = await fetch('/api/generate-weekly-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: partner.id,
-          available_days: days,
-          objetivo,
-          intensidad,
-          partners_profiles: others
-        })
-      });
-      const data = await res.json();
-      partner._status = data.ok ? 'ok' : 'error';
-    } catch {
-      partner._status = 'error';
-    }
-    renderPartnerChips();
-  }));
+async function invitePartners() {
+  if (!lastPlanParams) return;
+  const { days, objetivo, intensidad } = lastPlanParams;
+  const selected = allPartnerUsers.filter(p => inviteSelected.has(p.id));
+  if (!selected.length) return;
 
-  const failed = allSelected.filter(p => p._status === 'error');
-  if (failed.length === 0) {
-    showToast('Plans générés pour tous les partenaires');
-  } else {
-    showToast(`Erreur pour : ${failed.map(p => p.name).join(', ')}`, true);
-  }
+  document.getElementById('invite-panel').style.display = 'none';
+  document.getElementById('btn-invite-plan').style.display = 'none';
+
+  const currentUserObj = { id: currentUser.id, name: currentUser.name, profile_data: {} };
+  await _runPartnerGenerations(selected, days, objetivo, intensidad, currentUserObj);
+}
+
+// ── Partner plan sheet ───────────────────────────────────────
+function showPartnerPlan(userId) {
+  const entry = partnerPlansData[userId];
+  if (!entry) return;
+  const { name, plan } = entry;
+  document.getElementById('partner-plan-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('partner-plan-name').textContent = name;
+  document.getElementById('partner-plan-subtitle').textContent =
+    `${plan.total_km ?? '—'} km · ${plan.quality_sessions ?? '—'} séances qualité`;
+  document.getElementById('partner-plan-content').innerHTML =
+    `<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">${plan.week_summary || ''}</div>` +
+    (plan.days || []).map(d => {
+      const isRest = d.type === 'rest';
+      const color = isRest ? 'rgba(255,255,255,0.05)' : (SESSION_TYPE_COLORS[d.type] || 'rgba(255,255,255,0.3)');
+      const short = d.day_short || (d.day || '').slice(0, 3).toUpperCase();
+      const meta = [d.distance_km ? d.distance_km + ' km' : null, d.duration_min ? d.duration_min + ' min' : null]
+        .filter(Boolean).join(' · ');
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:8px;background:${color};flex-shrink:0;display:flex;align-items:center;justify-content:center">
+          <span style="font-size:9px;font-weight:700;color:#0a0a0a">${short}</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${isRest ? 'Repos' : (d.session_label || '')}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${meta}</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);flex-shrink:0">RPE ${d.effort_rpe ?? '—'}</div>
+      </div>`;
+    }).join('');
+
+  document.getElementById('partner-plan-overlay').style.display = 'block';
+  requestAnimationFrame(() => document.getElementById('partner-plan-sheet').classList.add('open'));
+}
+
+function closePartnerSheet() {
+  document.getElementById('partner-plan-sheet').classList.remove('open');
+  setTimeout(() => { document.getElementById('partner-plan-overlay').style.display = 'none'; }, 300);
 }
 
 function toggleDayDetail(id) {
@@ -3490,10 +3592,14 @@ function prefillSessionFromPlan(day) {
 function resetPlan() {
   document.getElementById('plan-active').style.display = 'none';
   document.getElementById('plan-configurator').style.display = 'block';
-  document.getElementById('train-together-wrap').style.display = 'none';
-  document.getElementById('train-together-panel').style.display = 'none';
-  trainPartners = [];
-  selectedPartners.clear();
+  document.getElementById('training-with-section').style.display = 'none';
+  document.getElementById('invite-plan-wrap').style.display = 'none';
+  document.getElementById('invite-panel').style.display = 'none';
+  preplanSelected.clear();
+  inviteSelected.clear();
+  partnerPlansData = {};
+  lastPlanParams = null;
+  renderPreplanChips();
   planLoaded = false;
 }
 
@@ -3526,7 +3632,7 @@ function showTab(name) {
   if (name === 'history') loadHistory();
   if (name === 'goals') { renderGoals(); loadGoals(); }
   if (name === 'coach') { loadChatHistory(); setTimeout(scrollChatToBottom, 50); }
-  if (name === 'plan') { initPlanUI(); loadSavedPlan(); }
+  if (name === 'plan') { initPlanUI(); loadSavedPlan(); loadAllPartnerUsers(); }
 }
 
 function toggleHamburger() {
@@ -3684,6 +3790,21 @@ init();
   <div id="sheet-users"></div>
 
   <button class="sheet-close-btn" onclick="closeProfileSheet()">Fermer</button>
+</div>
+
+<!-- PARTNER PLAN SHEET -->
+<div class="sheet-overlay" id="partner-plan-overlay" onclick="closePartnerSheet()" style="display:none"></div>
+<div class="profile-sheet" id="partner-plan-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-user-header" style="margin-bottom:14px">
+    <div class="sheet-avatar" id="partner-plan-avatar">?</div>
+    <div>
+      <div class="sheet-name" id="partner-plan-name"></div>
+      <div class="sheet-level" id="partner-plan-subtitle"></div>
+    </div>
+  </div>
+  <div id="partner-plan-content" style="overflow-y:auto;padding-bottom:8px"></div>
+  <button class="sheet-close-btn" onclick="closePartnerSheet()">Fermer</button>
 </div>
 
 </body>
