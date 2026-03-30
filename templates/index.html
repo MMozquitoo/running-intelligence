@@ -1658,6 +1658,9 @@
         <div id="plan-days-list"></div>
         <div id="plan-week-notes" style="display:none"></div>
 
+        <!-- Calendar export -->
+        <div id="plan-calendar-section" style="display:none;margin-top:10px"></div>
+
         <!-- Training with (result badges) -->
         <div id="training-with-section" style="display:none;margin-top:10px">
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
@@ -3309,6 +3312,16 @@ function renderWeeklyPlan(plan) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <span style="font-size:11px;color:var(--text-muted)">RPE ${day.effort_rpe ?? '—'}</span>
+          ${!isRest ? `<button id="gcal-btn-${i}" onclick="event.stopPropagation();openGcalEvent(${i})"
+              title="Ajouter au calendrier"
+              style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);display:flex;align-items:center;flex-shrink:0">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </button>` : ''}
           <svg id="arrow-day-${i}" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" style="transition:transform 0.2s;color:var(--text-muted)">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
@@ -3385,6 +3398,9 @@ function renderWeeklyPlan(plan) {
   document.getElementById('invite-plan-wrap').style.display = 'block';
   document.getElementById('invite-panel').style.display = 'none';
   document.getElementById('btn-invite-plan').style.display = 'block';
+
+  currentActivePlan = plan;
+  renderCalendarExportSection();
 }
 
 // ─── TRAIN TOGETHER ───────────────────────────────────────────
@@ -3393,6 +3409,7 @@ let preplanSelected  = new Set(); // ids selected before generating (Option A)
 let inviteSelected   = new Set(); // ids selected in invite panel (Option B)
 let partnerPlansData = {};        // {userId: {name, plan}}
 let lastPlanParams   = null;      // {days, objetivo, intensidad}
+let currentActivePlan = null;     // the currently active plan object
 
 // Load (or refresh) the list of other users — called when plan tab opens
 async function loadAllPartnerUsers() {
@@ -3457,6 +3474,7 @@ async function _runPartnerGenerations(partners, days, objetivo, intensidad, curr
   else showToast('Plans générés pour tous les partenaires');
 
   renderTrainingWithChips(partners, null);
+  renderCalendarExportSection(); // refresh to add partner .ics download links
 }
 
 function renderTrainingWithChips(partners, forceStatus) {
@@ -3562,6 +3580,188 @@ function closePartnerSheet() {
   setTimeout(() => { document.getElementById('partner-plan-overlay').style.display = 'none'; }, 300);
 }
 
+// ─── GOOGLE CALENDAR INTEGRATION ──────────────────────────────
+// TODO: replace URL links + .ics with Google Calendar API + OAuth
+//       when user authentication is implemented. For now:
+//       - openGcalEvent() → Google Calendar URL (no auth needed)
+//       - exportWeekIcs() / exportPartnerIcs() → .ics file download
+
+const _DAY_TO_JS = {
+  // French
+  'lundi': 1, 'mardi': 2, 'mercredi': 3, 'jeudi': 4,
+  'vendredi': 5, 'samedi': 6, 'dimanche': 0,
+  // English
+  'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4,
+  'friday': 5, 'saturday': 6, 'sunday': 0
+};
+
+// Returns a Date object for the next occurrence of the given day name
+function _planDayToDate(dayName) {
+  const key = (dayName || '').toLowerCase().trim();
+  const target = _DAY_TO_JS[key];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (target === undefined) return today;
+  const diff = (target - today.getDay() + 7) % 7;
+  const d = new Date(today);
+  d.setDate(today.getDate() + (diff === 0 ? 7 : diff)); // next occurrence, not today
+  return d;
+}
+
+// Returns { dtstart, dtend } strings like "20260331T070000"
+function _formatIcalDate(date, hourInt, durationMin) {
+  const pad = n => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const mo = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const h = pad(hourInt);
+  const endMin = (hourInt * 60 + durationMin) % (24 * 60);
+  const eh = pad(Math.floor(endMin / 60));
+  const em = pad(endMin % 60);
+  const base = `${y}${mo}${d}`;
+  return { dtstart: `${base}T${h}0000`, dtend: `${base}T${eh}${em}00` };
+}
+
+// Builds a plain-text description for a calendar event
+function _buildEventDescription(day) {
+  const parts = [];
+  if (day.warmup)      parts.push(`Échauffement: ${day.warmup}`);
+  if (day.main_block)  parts.push(`Bloc principal: ${day.main_block}`);
+  if (day.cooldown)    parts.push(`Retour au calme: ${day.cooldown}`);
+  if (day.tactical_note) parts.push(`Note: ${day.tactical_note}`);
+  if (day.coach_note)  parts.push(`Coach: ${day.coach_note}`);
+  if (day.pace_target) parts.push(`Allure cible: ${day.pace_target}`);
+  if (day.zones)       parts.push(`Zones: ${day.zones}`);
+  if (day.effort_rpe)  parts.push(`RPE: ${day.effort_rpe}`);
+  return parts.join('\\n\\n');
+}
+
+// Open Google Calendar URL for a specific day index in the active plan
+function openGcalEvent(dayIndex) {
+  // TODO: replace with Google Calendar API + OAuth for automatic event creation
+  if (!currentActivePlan) return;
+  const day = currentActivePlan.days[dayIndex];
+  if (!day || day.type === 'rest') return;
+
+  const date = _planDayToDate(day.day);
+  const dur = day.duration_min || 60;
+  const { dtstart, dtend } = _formatIcalDate(date, 7, dur); // default 07:00
+
+  const title = encodeURIComponent(`🏃 ${day.session_label || day.type}`);
+  const desc  = encodeURIComponent(_buildEventDescription(day).replace(/\\n/g, '\n'));
+  const dates = `${dtstart}/${dtend}`;
+
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${desc}`;
+  window.open(url, '_blank');
+
+  // Mark icon green
+  const btn = document.getElementById(`gcal-btn-${dayIndex}`);
+  if (btn) btn.querySelector('svg').style.stroke = '#4ade80';
+}
+
+// Build a VCALENDAR string from an array of plan days
+function _buildIcsCalendar(days, ownerName) {
+  const CRLF = '\r\n';
+  const now = new Date();
+  const stamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//Running Intelligence//${ownerName}//FR`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:Plan Running ' + ownerName,
+    'X-WR-TIMEZONE:Europe/Paris'
+  ];
+  (days || []).forEach((day, i) => {
+    if (day.type === 'rest') return;
+    const date = _planDayToDate(day.day);
+    const dur = day.duration_min || 60;
+    const { dtstart, dtend } = _formatIcalDate(date, 7, dur);
+    const summary = `🏃 ${day.session_label || day.type}`;
+    const desc = _buildEventDescription(day);
+    const uid = `run-${ownerName.replace(/\s/g,'')}-${i}-${stamp}@running-intelligence`;
+    lines.push('BEGIN:VEVENT');
+    lines.push(`DTSTART:${dtstart}`);
+    lines.push(`DTEND:${dtend}`);
+    lines.push(`DTSTAMP:${stamp}`);
+    lines.push(`UID:${uid}`);
+    lines.push(`SUMMARY:${summary}`);
+    if (desc) lines.push(`DESCRIPTION:${desc}`);
+    lines.push('BEGIN:VALARM');
+    lines.push('TRIGGER:-PT30M');
+    lines.push('ACTION:DISPLAY');
+    lines.push('DESCRIPTION:Rappel séance');
+    lines.push('END:VALARM');
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join(CRLF);
+}
+
+// Trigger a .ics file download
+function _downloadIcs(icsContent, filename) {
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Export the full week as a .ics file
+function exportWeekIcs() {
+  // TODO: replace with Google Calendar API + OAuth for direct calendar push
+  if (!currentActivePlan) return;
+  const name = currentUser ? currentUser.name : 'Runner';
+  const ics = _buildIcsCalendar(currentActivePlan.days, name);
+  _downloadIcs(ics, `plan-semaine-${name.toLowerCase()}.ics`);
+}
+
+// Export a partner's plan as a .ics file
+function exportPartnerIcs(userId) {
+  // TODO: replace with Google Calendar API + OAuth for direct partner calendar push
+  const entry = partnerPlansData[userId];
+  if (!entry) return;
+  const ics = _buildIcsCalendar(entry.plan.days, entry.name);
+  _downloadIcs(ics, `plan-semaine-${entry.name.toLowerCase()}.ics`);
+}
+
+// Populate #plan-calendar-section with export controls
+function renderCalendarExportSection() {
+  const section = document.getElementById('plan-calendar-section');
+  if (!currentActivePlan) { section.style.display = 'none'; return; }
+
+  const partnerLinks = Object.entries(partnerPlansData).map(([uid, entry]) => `
+    <button class="btn-secondary" style="font-size:12px;padding:7px 12px;display:inline-flex;align-items:center;gap:6px"
+            onclick="exportPartnerIcs(${uid})">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      ${entry.name} .ics
+    </button>`).join('');
+
+  section.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
+      <div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Calendrier</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <button class="btn-secondary" style="font-size:12px;padding:7px 12px;display:inline-flex;align-items:center;gap:6px"
+                onclick="exportWeekIcs()">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Exporter la semaine (.ics)
+        </button>
+        ${partnerLinks}
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:8px">Cliquez sur l'icône 📅 d'une séance pour l'ajouter à Google Agenda</div>
+    </div>`;
+  section.style.display = 'block';
+}
+
 function toggleDayDetail(id) {
   const el = document.getElementById(id);
   const idx = id.split('-')[1];
@@ -3595,10 +3795,13 @@ function resetPlan() {
   document.getElementById('training-with-section').style.display = 'none';
   document.getElementById('invite-plan-wrap').style.display = 'none';
   document.getElementById('invite-panel').style.display = 'none';
+  document.getElementById('plan-calendar-section').style.display = 'none';
+  document.getElementById('plan-calendar-section').innerHTML = '';
   preplanSelected.clear();
   inviteSelected.clear();
   partnerPlansData = {};
   lastPlanParams = null;
+  currentActivePlan = null;
   renderPreplanChips();
   planLoaded = false;
 }
